@@ -9,9 +9,17 @@ import mwa_vcs_fluxcal
 
 @click.command()
 @click.argument("archive", nargs=1, type=click.Path(exists=True))
+@click.option(
+    "-L",
+    "log_level",
+    type=click.Choice(["DEBUG", "INFO", "ERROR"], case_sensitive=False),
+    default="INFO",
+    help="The logger verbosity level.",
+)
 @click.option("-w", "windowsize", type=int, help="Window size to use to find the offpulse.")
-def main(archive: str, windowsize: int) -> None:
-    logger = mwa_vcs_fluxcal.get_logger(log_level=logging.INFO)
+def main(archive: str, log_level: str, windowsize: int) -> None:
+    log_level_dict = mwa_vcs_fluxcal.get_log_levels()
+    logger = mwa_vcs_fluxcal.get_logger(log_level=log_level_dict[log_level])
 
     logger.info(f"Loading archive: {archive}")
     archive = psrchive.Archive.load(archive)

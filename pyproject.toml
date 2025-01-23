@@ -1,0 +1,57 @@
+[project]
+name = "mwa_vcs_fluxcal"
+version = "0.0.1"
+description = "A suite of tools to estimate flux densities for pulsar profiles from MWA VCS data."
+authors = [
+    { name = "Christopher Lee" },
+    { name = "Bradley Meyers" },
+]
+license = { file = "LICENSE" }
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">= 3.9"
+dependencies = [
+    "click",
+    "matplotlib",
+    "numpy",
+    "ruff",
+]
+
+[project.scripts]
+fluxcal = "mwa_vcs_fluxcal.apps.fluxcal:main"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 100
+indent-width = 4
+target-version = "py39"
+include = [
+    "pyproject.toml",
+    "src/mwa_vcs_fluxcal/*.py",
+    "src/mwa_vcs_fluxcal/apps/*.py",
+]
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # flake8-bugbear
+    "B",
+    # isort
+    "I",
+]
+ignore = [
+    # Ignore unused imports
+    "F401",
+    # Ignore wildcard imports
+    "F403",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

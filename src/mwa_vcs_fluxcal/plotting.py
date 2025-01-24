@@ -6,6 +6,7 @@ import logging
 
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.interpolate import CubicSpline
 
 import mwa_vcs_fluxcal
 
@@ -114,12 +115,27 @@ def plot_pulse_profile(
 
 
 def plot_trcvr_vc_freq(
-    trcvr_spline,
+    trcvr_spline: CubicSpline,
     fctr: float,
     df: float,
     savename: str = "trcvr_vs_freq.png",
     logger: logging.Logger | None = None,
-):
+) -> None:
+    """Plot the receiver temperature as a function of frequency.
+
+    Parameters
+    ----------
+    trcvr_spline : `CubicSpline`
+        A spline fit to the temperatures in Kelvin as a function of frequency in MHz.
+    fctr : `float`
+        The centre frequency in MHz.
+    df : `float`
+        The bandwidth in MHz.
+    savename : `str`, optional
+        The filename to save the plot as. Default: "trcvr_vs_freq.png".
+    logger : `logging.Logger`, optional
+        A logger to use. Default: `None`.
+    """
     if logger is None:
         logger = mwa_vcs_fluxcal.get_logger()
 

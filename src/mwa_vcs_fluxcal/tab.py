@@ -1,27 +1,24 @@
-#!/usr/bin/env python
-
 ########################################################
 # Licensed under the Academic Free License version 3.0 #
 ########################################################
+
 import logging
+
 import numpy as np
-from mwalib import MetafitsContext, Pol
-from mwa_hyperbeam import FEEBeam as PrimaryBeam
 from astropy.constants import c as sol
+from mwa_hyperbeam import FEEBeam as PrimaryBeam
+from mwalib import MetafitsContext, Pol
 
 import mwa_vcs_fluxcal
+from mwa_vcs_fluxcal import MWA_CENTRE_CABLE_LEN
 
-# Define MWA location
-MWA_CENTRE_LON = 116.67081524 * u.deg
-MWA_CENTRE_LAT = -26.70331940 * u.deg
-MWA_CENTRE_H = 377.8269 * u.m
-MWA_CENTRE_CABLE_LEN = 0.0 * u.m
+__all__ = [
+    "getPrimaryBeamPower",
+    "extractWorkingTilePositions",
+    "calcGeometricDelays",
+    "calcArrayFactorPower",
+]
 
-MWA_LOCATION = EarthLocation.from_geodetic(
-    lon=MWA_CENTRE_LON, lat=MWA_CENTRE_LAT, height=MWA_CENTRE_H
-)
-
-logger = mwa_vcs_fluxcal.get_logger()
 
 def getPrimaryBeamPower(
     metadata: MetafitsContext,
@@ -31,6 +28,7 @@ def getPrimaryBeamPower(
     stokes: str = "I",
     zenithNorm: bool = True,
     show_path: bool = False,
+    logger: logging.Logger | None = None,
 ) -> dict:
     """Calculate the primary beam response (full Stokes) for a
     given observation over a grid of the sky.
@@ -62,6 +60,9 @@ def getPrimaryBeamPower(
              arguments (or however the user desires).
     :rtype: dict[str, np.ndarray]
     """
+    if logger is None:
+        logger = mwa_vcs_fluxcal.get_logger()
+
     za = np.pi / 2 - alt
     beam = PrimaryBeam()
 
@@ -111,7 +112,8 @@ def getPrimaryBeamPower(
     # This einsum does the following operations:
     # - N is our "batch" dimension, so we can do a batch of N matrix multiplications
     # - first, we do the multiplication of N (k x i) Jones matrices onto our (i x j) Pauli matrix
-    # - then we do the multiplication of the N (j x k) composite matrices onto the inverse Jones matrix (j x k)
+    # - then we do the multiplication of the N (j x k) composite matrices onto the inverse Jones
+    #   matrix (j x k)
     # - finally, the "->N" symbol implies the trace (sum of diagonals) of each N matrices
 
     stokes_response = dict()
@@ -132,9 +134,7 @@ def getPrimaryBeamPower(
         stokes_response.update(
             {
                 f"{st}": scale
-                * np.einsum(
-                    "Nki,ij,jkN->N", J, rho_mat, K, optimize=einsum_path[0]
-                ).real
+                * np.einsum("Nki,ij,jkN->N", J, rho_mat, K, optimize=einsum_path[0]).real
                 # We explicitly take the real part here due to floating-point
                 # precision leaving some very small imaginary components in the result
             }
@@ -177,14 +177,12 @@ def extractWorkingTilePositions(metadata: MetafitsContext) -> np.ndarray:
     # Gather the flagged tile information from the metafits information
     # and remove those tiles from the above vector
     tile_flags = np.array([rf.flagged for rf in metadata.rf_inputs if rf.pol == Pol.X])
-    tile_positions = np.delete(tile_positions, np.where(tile_flags == True), axis=0)
+    tile_positions = np.delete(tile_positions, np.where(tile_flags), axis=0)
 
     return tile_positions
 
 
-def calcGeometricDelays(
-    positions: np.ndarray, freq_hz: float, alt: float, az: float
-) -> np.ndarray:
+def calcGeometricDelays(positions: np.ndarray, freq_hz: float, alt: float, az: float) -> np.ndarray:
     """Compute the geometric delay phases for each element position in order to
     "phase up" to the provided position at a specific frequency. These are the
     phasors used in a beamforming operation.
@@ -234,7 +232,9 @@ def calcGeometricDelays(
     return phasor
 
 
-def calcArrayFactorPower(look_w: np.ndarray, target_w: np.ndarray) -> np.ndarray:
+def calcArrayFactorPower(
+    look_w: np.ndarray, target_w: np.ndarray, logger: logging.Logger | None = None
+) -> np.ndarray:
     """Compute the array factor power from a given pointing phasor
     and one or more target directions.
 
@@ -248,7 +248,11 @@ def calcArrayFactorPower(look_w: np.ndarray, target_w: np.ndarray) -> np.ndarray
         target direction.
     :rtype: np.ndarray
     """
-    # At this stage, the shape of target_w = (nant, n_ra, n_dec) and while the shape of look_w = (nant,)
+    if logger is None:
+        logger = mwa_vcs_fluxcal.get_logger()
+
+    # At this stage, the shape of target_w = (nant, n_ra, n_dec) and while
+    # the shape of look_w = (nant,)
     logger.info("Summing over antennas")
     sum_over_antennas = np.tensordot(np.conjugate(look_w), target_w, axes=1)
     # From the numpy.tensordot documentation:

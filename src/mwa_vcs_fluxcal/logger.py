@@ -1,3 +1,7 @@
+########################################################
+# Licensed under the Academic Free License version 3.0 #
+########################################################
+
 import logging
 
 __all__ = ["get_log_levels", "get_logger"]
@@ -15,6 +19,7 @@ def get_log_levels() -> dict:
         DEBUG=logging.DEBUG,
         INFO=logging.INFO,
         ERROR=logging.ERROR,
+        CRITICAL=logging.CRITICAL,
     )
 
 

@@ -1,3 +1,7 @@
+########################################################
+# Licensed under the Academic Free License version 3.0 #
+########################################################
+
 import logging
 
 import click
@@ -12,7 +16,7 @@ import mwa_vcs_fluxcal
 @click.option(
     "-L",
     "log_level",
-    type=click.Choice(["DEBUG", "INFO", "ERROR"], case_sensitive=False),
+    type=click.Choice(["DEBUG", "INFO", "ERROR", "CRITICAL"], case_sensitive=False),
     default="INFO",
     help="The logger verbosity level.",
 )

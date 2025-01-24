@@ -9,7 +9,7 @@ import numpy as np
 
 import mwa_vcs_fluxcal
 
-__all__ = ["plot_pulse_profile"]
+__all__ = ["plot_pulse_profile", "plot_trcvr_vc_freq"]
 
 plt.rcParams["mathtext.fontset"] = "dejavuserif"
 plt.rcParams["text.usetex"] = True
@@ -104,6 +104,38 @@ def plot_pulse_profile(
     ax.set_xlabel("Pulse Phase")
     ax.set_ylabel("Flux Density [arb. units]")
     ax.set_title(f"S/N = {snr:.2f}")
+
+    ax.legend()
+
+    logger.info(f"Saving plot file: {savename}")
+    fig.savefig(savename)
+
+    plt.close()
+
+
+def plot_trcvr_vc_freq(
+    trcvr_spline,
+    fctr: float,
+    df: float,
+    savename: str = "trcvr_vs_freq.png",
+    logger: logging.Logger | None = None,
+):
+    if logger is None:
+        logger = mwa_vcs_fluxcal.get_logger()
+
+    fig, ax = plt.subplots(figsize=(6, 5), dpi=300, tight_layout=True)
+
+    freqs = np.linspace(fctr - df / 2, fctr + df / 2, 1000)
+
+    ax.plot(freqs, trcvr_spline(freqs), linestyle="-", color="k", label="Cubic Spline")
+    ylims = ax.get_ylim()
+
+    ax.set_xlim([fctr - df / 2, fctr + df / 2])
+    ax.set_ylim(ylims)
+    ax.minorticks_on()
+    ax.tick_params(axis="both", which="both", right=True, top=True, direction="in")
+    ax.set_xlabel("Frequency [MHz]")
+    ax.set_ylabel("$T_\mathrm{rec}$ [K]")
 
     ax.legend()
 

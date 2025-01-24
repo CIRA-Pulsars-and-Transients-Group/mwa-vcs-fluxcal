@@ -30,6 +30,5 @@ MWA_LOCATION = EarthLocation.from_geodetic(
 SKY_TEMP_MAP = read_map(
     pkg_resources.resource_filename("mwa_vcs_fluxcal", "data/haslam408_ds_Remazeilles2014.fits"),
     dtype=None,
-    verbose=False,
 )
 RCVR_TEMP_FILE = pkg_resources.resource_filename("mwa_vcs_fluxcal", "data/MWA_Trcvr_tile_56.csv")

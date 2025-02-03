@@ -68,6 +68,7 @@ https://ui.adsabs.harvard.edu/abs/2017ApJ...851...20M/abstract
 @click.option("-w", "windowsize", type=int, help="Window size to use to find the offpulse.")
 @click.option("--plot_profile", is_flag=True, help="Plot the pulse profile.")
 @click.option("--plot_trec", is_flag=True, help="Plot the receiver temperature.")
+@click.option("--plot_pb", is_flag=True, help="Plot the primary beam.")
 def main(
     archive: str,
     log_level: str,
@@ -75,6 +76,7 @@ def main(
     windowsize: int,
     plot_profile: bool,
     plot_trec: bool,
+    plot_pb: bool,
 ) -> None:
     log_level_dict = mwa_vcs_fluxcal.get_log_levels()
     logger = mwa_vcs_fluxcal.get_logger(log_level=log_level_dict[log_level])
@@ -142,18 +144,32 @@ def main(
 
     # Get bandwidth and integration time from archive
     fctr = archive.get_centre_frequency()
-    logger.info(f"fctr = {fctr} MHz")
     df = archive.get_bandwidth()
-    logger.info(f"df = {df} MHz")
     t0 = archive.get_first_Integration().get_start_time()
     t1 = archive.get_last_Integration().get_end_time()
     dt = (t1 - t0).in_seconds()
-    logger.info(f"dt = {dt} s")
+    logger.info(f"{fctr=} MHz, {df=} MHz, {dt=} MHz")
 
     # Get T_rec
-    trcvr_spline = mwa_vcs_fluxcal.splineRecieverTemp(context)
+    trcvr_spline = mwa_vcs_fluxcal.splineRecieverTemp()
     if plot_trec:
         mwa_vcs_fluxcal.plot_trcvr_vc_freq(trcvr_spline, fctr, df, logger=logger)
+
+    # Make a meshgrid of the sky
+    grid_stepsize = np.deg2rad(1)
+    box_az = np.arange(0, 2 * np.pi, grid_stepsize)
+    box_za = np.arange(0, np.pi / 2, grid_stepsize)
+    grid_az, grid_za = np.meshgrid(box_az, box_za)
+    grid_alt = np.pi / 2 - grid_za
+    logger.info(f"Az/ZA grid will be computed with size {grid_az.shape}")
+
+    # Calculate the primary beam power
+    pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
+        context, fctr * 1e6, grid_alt.flatten(), grid_az.flatten(), logger=logger
+    )
+    grid_pbp = pbp["I"].reshape(grid_az.shape)
+    if plot_pb:
+        mwa_vcs_fluxcal.plot_primary_beam(grid_az, grid_za, grid_pbp, logger=logger)
 
     # Calculate T_ant
 

@@ -148,7 +148,7 @@ def main(
     t0 = archive.get_first_Integration().get_start_time()
     t1 = archive.get_last_Integration().get_end_time()
     dt = (t1 - t0).in_seconds()
-    logger.info(f"{fctr=} MHz, {df=} MHz, {dt=} MHz")
+    logger.info(f"{fctr=} MHz, {df=} MHz, {dt=} s")
 
     # Get T_rec
     trcvr_spline = mwa_vcs_fluxcal.splineRecieverTemp()

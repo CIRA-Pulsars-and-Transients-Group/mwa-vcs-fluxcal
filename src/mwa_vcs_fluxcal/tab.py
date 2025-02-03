@@ -64,7 +64,7 @@ def getPrimaryBeamPower(
         logger = mwa_vcs_fluxcal.get_logger()
 
     za = np.pi / 2 - alt
-    beam = PrimaryBeam()
+    beam = PrimaryBeam(None)
 
     logger.info("Calculating Jones matrices")
     jones = beam.calc_jones_array(

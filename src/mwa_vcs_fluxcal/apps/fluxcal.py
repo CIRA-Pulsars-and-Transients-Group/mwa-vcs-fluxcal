@@ -44,7 +44,7 @@ A_e = eta * -------------
 where Omega_A is the beam solid angle -- the integral of the array factor
 power pattern over the sky.
 
-The gain is related to the effective area and Bolzmann's constant k_B as:
+The gain is related to the effective area and Boltzmann's constant k_B as:
 
      A_e
 G = -----
@@ -80,7 +80,10 @@ def main(
     logger = mwa_vcs_fluxcal.get_logger(log_level=log_level_dict[log_level])
 
     logger.info(f"Loading archive: {archive}")
-    archive = psrchive.Archive.load(archive)
+    try:
+        archive = psrchive.Archive_load(archive)
+    except AttributeError:
+        archive = psrchive.Archive.load(archive)
 
     if archive.get_state() != "Stokes" and archive.get_npol() == 4:
         try:

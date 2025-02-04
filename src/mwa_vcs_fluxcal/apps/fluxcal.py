@@ -11,7 +11,7 @@ from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.time import Time
 
 import mwa_vcs_fluxcal
-from mwa_vcs_fluxcal import MWA_LOCATION
+from mwa_vcs_fluxcal import C0, KB, MWA_LOCATION, SI_TO_JY
 
 """
 The flux density can be estimated using the radiometer equation:
@@ -148,23 +148,24 @@ def main(
     tile_positions = mwa_vcs_fluxcal.extractWorkingTilePositions(context)
 
     # Get frequency and time metadata from archive
-    fctr = archive.get_centre_frequency()
-    df = archive.get_bandwidth()
+    fctr = archive.get_centre_frequency() * u.MHz
+    df = archive.get_bandwidth() * u.MHz
     t0 = archive.get_first_Integration().get_start_time()
     t1 = archive.get_last_Integration().get_end_time()
-    dt = (t1 - t0).in_seconds()
+    dt = (t1 - t0).in_seconds() * u.s
     mjdctr = (t0.in_days() + t1.in_days()) / 2
-    logger.info(f"{fctr=} MHz, {df=} MHz, {mjdctr=}, {dt=} s")
+    logger.info(f"fctr={fctr.to_string()}, df={df.to_string()}")
+    logger.info(f"mjdctr={mjdctr}, dt={dt.to_string()}")
 
     # Hardcode these for now
-    eval_freq = fctr * 1e6
+    eval_freq = fctr
     eval_time = mjdctr
     az_range = (Angle(0, u.rad), Angle(2 * np.pi, u.rad))
     za_range = (Angle(0, u.rad), Angle(np.pi / 2, u.rad))
     grid_res = Angle(10, u.arcmin)
     az_subbox_size = 500
     za_subbox_size = 500
-    logger.info(f"Grid resolution = {grid_res.to_string(decimal=True)} arcmin")
+    logger.info(f"Grid resolution = {grid_res.to_string()}")
 
     if plot_pb:
         # Make a low-res map of the primary beam
@@ -174,7 +175,7 @@ def main(
         grid_az, grid_za = np.meshgrid(box_az, box_za)
         grid_alt = np.pi / 2 - grid_za
         grid_pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
-            context, eval_freq, grid_alt.flatten(), grid_az.flatten(), logger=logger
+            context, eval_freq.to(u.Hz).value, grid_alt.flatten(), grid_az.flatten(), logger=logger
         )["I"].reshape(grid_az.shape)
         mwa_vcs_fluxcal.plot_primary_beam(grid_az, grid_za, grid_pbp, logger=logger)
 
@@ -183,7 +184,7 @@ def main(
     za_box = np.arange(za_range[0].radian, za_range[1].radian, grid_res.radian)
     logger.info(f"Grid size (az,za) = ({az_box.size},{za_box.size})")
 
-    # Calculate the solid angle pixel size
+    # Calculate the solid angle pixel size as a column vector
     pixel_size = grid_res * grid_res * np.sin(za_box.reshape(-1, 1))
 
     # Divide the box into subboxes with maximum size (az_subbox_size, za_subbox_size)
@@ -201,7 +202,7 @@ def main(
     target_position_altaz = target_position.transform_to(altaz_frame)
     target_psi = mwa_vcs_fluxcal.calcGeometricDelays(
         tile_positions,
-        eval_freq,
+        eval_freq.to(u.Hz).value,
         target_position_altaz.alt.rad,
         target_position_altaz.az.rad,
     )
@@ -229,11 +230,17 @@ def main(
             )
 
             # Get the interpolated sky temperature
-            tsky = mwa_vcs_fluxcal.getSkyTempGrid(subgrid_coords, eval_freq / 1e6, logger=logger)
+            tsky = mwa_vcs_fluxcal.getSkyTempGrid(
+                subgrid_coords, eval_freq.to(u.MHz).value, logger=logger
+            )
 
             # Calculate the primary beam power
             pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
-                context, eval_freq, alt_subgrid.flatten(), az_subgrid.flatten(), logger=logger
+                context,
+                eval_freq.to(u.Hz).value,
+                alt_subgrid.flatten(),
+                az_subgrid.flatten(),
+                logger=logger,
             )["I"].reshape(az_subgrid.shape)
 
             # Loop through pixels
@@ -243,7 +250,7 @@ def main(
                 for nn in range(za_subbox.size):
                     look_psi = mwa_vcs_fluxcal.calcGeometricDelays(
                         tile_positions,
-                        eval_freq,
+                        eval_freq.to(u.Hz).value,
                         alt_subgrid[nn, mm],
                         az_subgrid[nn, mm],
                     )
@@ -267,24 +274,42 @@ def main(
             int_bot += np.sum(tabp * pixel_size_grid)
             Omega_A += np.sum(afp * pixel_size_grid)
 
-    tant = int_top / int_bot
-    logger.info(f"{tant=}")
-    logger.info(f"{Omega_A=}")
+    # Antenna temperature
+    tant = int_top / int_bot * u.K
+    logger.info(f"T_ant = {tant.to_string()}")
 
-    # Get T_rec
-    trcvr_spline = mwa_vcs_fluxcal.splineRecieverTemp()
+    # Beam solid angle
+    Omega_A = Omega_A * u.radian**2
+    logger.info(f"Omega_A = {Omega_A.to_string()}")
+
+    # Receiver temperature
+    trec_spline = mwa_vcs_fluxcal.splineRecieverTemp()
     if plot_trec:
-        mwa_vcs_fluxcal.plot_trcvr_vc_freq(trcvr_spline, fctr, df, logger=logger)
+        mwa_vcs_fluxcal.plot_trcvr_vc_freq(trec_spline, fctr, df, logger=logger)
+    trec = trec_spline(eval_freq.to(u.MHz).value) * u.K
+    logger.info(f"T_rec = {trec.to_string()}")
 
-    # Calculate T_sys
+    # System temperature
     eta = 0.9
-    t0 = 290
-    tsys = eta * tant + (1 - eta) * t0 + trcvr_spline(eval_freq / 1e6)
-    logger.info(f"T_sys = {tsys}")
+    t0 = 290 * u.K
+    tsys = eta * tant + (1 - eta) * t0 + trec
+    logger.info(f"T_sys = {tsys.to_string()}")
 
-    # Calculate G
+    # Effective area
+    Aeff = eta * (4 * np.pi * u.radian**2 * C0**2 / (eval_freq.to(u.s**-1) ** 2 * Omega_A))
+    logger.info(f"A_eff = {Aeff.to_string()}")
+
+    # Gain
+    gain = Aeff / (2 * KB) * SI_TO_JY
+    gain = gain.to(u.K * u.Jy**-1)
+    logger.info(f"G = {gain.to_string()}")
 
     # Radiometer equation
+    fc = 0.7
+    npol = 2
+    Smean = snr * fc * tsys / (gain * np.sqrt(npol * df * dt))
+    Smean = Smean.to(u.Jy)
+    logger.info(f"S_mean = {Smean.to_string()}")
 
 
 if __name__ == "__main__":

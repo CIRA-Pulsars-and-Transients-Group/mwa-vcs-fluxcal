@@ -161,9 +161,9 @@ def main(
     eval_time = mjdctr
     az_range = (Angle(0, u.rad), Angle(2 * np.pi, u.rad))
     za_range = (Angle(0, u.rad), Angle(np.pi / 2, u.rad))
-    grid_res = Angle(1, u.arcmin)
-    az_subbox_size = 1000
-    za_subbox_size = 1000
+    grid_res = Angle(10, u.arcmin)
+    az_subbox_size = 500
+    za_subbox_size = 500
     logger.info(f"Grid resolution = {grid_res.to_string(decimal=True)} arcmin")
 
     if plot_pb:
@@ -182,6 +182,9 @@ def main(
     az_box = np.arange(az_range[0].radian, az_range[1].radian, grid_res.radian)
     za_box = np.arange(za_range[0].radian, za_range[1].radian, grid_res.radian)
     logger.info(f"Grid size (az,za) = ({az_box.size},{za_box.size})")
+
+    # Calculate the solid angle pixel size
+    pixel_size = grid_res * grid_res * np.sin(za_box.reshape(-1, 1))
 
     # Divide the box into subboxes with maximum size (az_subbox_size, za_subbox_size)
     az_subbox_num = np.ceil(az_box.size / az_subbox_size).astype(int)
@@ -206,6 +209,7 @@ def main(
     # Loop through subboxes and integrate
     int_top = 0
     int_bot = 0
+    Omega_A = 0
     for ii in range(az_subbox_num):
         az_subbox = az_subboxes[ii]
         for jj in range(za_subbox_num):
@@ -233,6 +237,7 @@ def main(
             )["I"].reshape(az_subgrid.shape)
 
             # Loop through pixels
+            afp = np.zeros(shape=az_subgrid.shape, dtype=np.float64)
             tabp = np.zeros(shape=az_subgrid.shape, dtype=np.float64)
             for mm in range(az_subbox.size):
                 for nn in range(za_subbox.size):
@@ -244,16 +249,27 @@ def main(
                     )
 
                     # Calculate the array factor power
-                    afp = mwa_vcs_fluxcal.calcArrayFactorPower(look_psi, target_psi, logger=logger)
+                    afp[nn, mm] = mwa_vcs_fluxcal.calcArrayFactorPower(
+                        look_psi, target_psi, logger=logger
+                    )
 
-                    # Calculate the tied-array beam power
-                    tabp[nn, mm] = afp * pbp[nn, mm]
+            # Calculate the tied-array beam power
+            tabp = afp * pbp
 
-            int_top += np.sum(tabp * tsky)
-            int_bot += np.sum(tabp)
+            # Get sin(theta)*d(theta)*d(phi) in rad^2
+            pixel_size_subbox = pixel_size.value[
+                jj * za_subbox_num : jj * za_subbox_num + za_subbox.size, :
+            ]
+            pixel_size_grid = np.repeat(pixel_size_subbox, az_subbox.size, axis=1)
+
+            # Compute the integral
+            int_top += np.sum(tabp * tsky * pixel_size_grid)
+            int_bot += np.sum(tabp * pixel_size_grid)
+            Omega_A += np.sum(afp * pixel_size_grid)
 
     tant = int_top / int_bot
-    logger.info(f"T_ant = {tant}")
+    logger.info(f"{tant=}")
+    logger.info(f"{Omega_A=}")
 
     # Get T_rec
     trcvr_spline = mwa_vcs_fluxcal.splineRecieverTemp()

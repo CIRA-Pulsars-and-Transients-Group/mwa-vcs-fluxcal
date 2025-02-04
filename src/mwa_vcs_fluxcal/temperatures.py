@@ -15,7 +15,7 @@ from scipy.interpolate import CubicSpline
 import mwa_vcs_fluxcal
 from mwa_vcs_fluxcal import RCVR_TEMP_FILE, SKY_TEMP_MAP_FILE
 
-__all__ = ["splineSkyTempAtCoord", "splineRecieverTemp"]
+__all__ = ["splineSkyTempAtCoord", "getSkyTempGrid", "splineRecieverTemp"]
 
 
 def splineSkyTempAtCoord(
@@ -33,7 +33,7 @@ def splineSkyTempAtCoord(
     :type context: MetafitsContext
     :param coord: An astropy SkyCoord object for the desired sky location
                   to retrive a sky temperature estimate from the Healpix map.
-    :type coord: SKyCoord
+    :type coord: SkyCoord
     :param sky_index: The assumec spectral index of the sky temperature. Default: -2.55.
     :type sky_index: float
 
@@ -48,7 +48,7 @@ def splineSkyTempAtCoord(
     sky_temp_map = read_map(SKY_TEMP_MAP_FILE)
 
     # convert ra, dec to Galactic coordinate
-    logger.info("Converting pointing coordinate to Galactic frame")
+    logger.debug("Converting pointing coordinate to Galactic frame")
     gal = coord.transform_to("galactic")
     gl = gal.l.deg
     gb = gal.b.deg
@@ -68,6 +68,49 @@ def splineSkyTempAtCoord(
     tsky_spline = CubicSpline(freqs, tsky_sample)
 
     return tsky_spline
+
+
+def getSkyTempGrid(
+    coords: SkyCoord,
+    obs_freq_mhz: float,
+    sky_index: float = -2.55,
+    logger: logging.Logger | None = None,
+) -> CubicSpline:
+    """Estimate the sky temperature at a given coordinate, provided a metafits contenxt
+    for frequency information. Returns a CubicSpline for interpolation across the observed
+    frequency band.
+
+    :param coords: An astropy SkyCoord object for the desired sky locations
+                  to retrive a sky temperature estimate from the Healpix map.
+    :type coord: SkyCoord
+    :param sky_index: The assumec spectral index of the sky temperature. Default: -2.55.
+    :type sky_index: float
+
+    :return: The sky temperature at each coordinate interpolated to the given frequency.
+    :rtype: ndarray
+    """
+    if logger is None:
+        logger = mwa_vcs_fluxcal.get_logger()
+
+    # read the sky temperature map
+    sky_temp_map = read_map(SKY_TEMP_MAP_FILE)
+
+    # convert ra, dec to Galactic coordinate
+    logger.debug("Converting pointing coordinate to Galactic frame")
+    gal = coords.transform_to("galactic")
+    gl = gal.l.deg
+    gb = gal.b.deg
+
+    # retrieve sky temperature from sky map
+    logger.debug("Estimating Tsky")
+    map_tsky = get_interp_val(sky_temp_map, gl, gb, nest=False, lonlat=True)
+
+    # scale sky temperature to center frequency of the survey
+    logger.debug("Interpolating Tsky to provided frequency")
+    map_freq_mhz = 408.0
+    tsky_interp = map_tsky * (obs_freq_mhz / map_freq_mhz) ** sky_index
+
+    return tsky_interp
 
 
 def splineRecieverTemp() -> CubicSpline:

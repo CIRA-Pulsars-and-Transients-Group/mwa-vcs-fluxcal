@@ -2,12 +2,16 @@
 # Licensed under the Academic Free License version 3.0 #
 ########################################################
 
+import astropy.units as u
 import click
 import mwalib
 import numpy as np
 import psrchive
+from astropy.coordinates import AltAz, Angle, SkyCoord
+from astropy.time import Time
 
 import mwa_vcs_fluxcal
+from mwa_vcs_fluxcal import MWA_LOCATION
 
 """
 The flux density can be estimated using the radiometer equation:
@@ -141,39 +145,126 @@ def main(
     # Prepare metadata
     logger.info(f"Loading metafits: {metafits}")
     context = mwalib.MetafitsContext(metafits)
+    tile_positions = mwa_vcs_fluxcal.extractWorkingTilePositions(context)
 
-    # Get bandwidth and integration time from archive
+    # Get frequency and time metadata from archive
     fctr = archive.get_centre_frequency()
     df = archive.get_bandwidth()
     t0 = archive.get_first_Integration().get_start_time()
     t1 = archive.get_last_Integration().get_end_time()
     dt = (t1 - t0).in_seconds()
-    logger.info(f"{fctr=} MHz, {df=} MHz, {dt=} s")
+    mjdctr = (t0.in_days() + t1.in_days()) / 2
+    logger.info(f"{fctr=} MHz, {df=} MHz, {mjdctr=}, {dt=} s")
+
+    # Hardcode these for now
+    eval_freq = fctr * 1e6
+    eval_time = mjdctr
+    az_range = (Angle(0, u.rad), Angle(2 * np.pi, u.rad))
+    za_range = (Angle(0, u.rad), Angle(np.pi / 2, u.rad))
+    grid_res = Angle(1, u.arcmin)
+    az_subbox_size = 1000
+    za_subbox_size = 1000
+    logger.info(f"Grid resolution = {grid_res.to_string(decimal=True)} arcmin")
+
+    if plot_pb:
+        # Make a low-res map of the primary beam
+        grid_stepsize = np.deg2rad(1)
+        box_az = np.arange(az_range[0], az_range[1], grid_stepsize)
+        box_za = np.arange(za_range[0], za_range[1], grid_stepsize)
+        grid_az, grid_za = np.meshgrid(box_az, box_za)
+        grid_alt = np.pi / 2 - grid_za
+        grid_pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
+            context, eval_freq, grid_alt.flatten(), grid_az.flatten(), logger=logger
+        )["I"].reshape(grid_az.shape)
+        mwa_vcs_fluxcal.plot_primary_beam(grid_az, grid_za, grid_pbp, logger=logger)
+
+    # Define a box covering the full range in Az/ZA
+    az_box = np.arange(az_range[0].radian, az_range[1].radian, grid_res.radian)
+    za_box = np.arange(za_range[0].radian, za_range[1].radian, grid_res.radian)
+    logger.info(f"Grid size (az,za) = ({az_box.size},{za_box.size})")
+
+    # Divide the box into subboxes with maximum size (az_subbox_size, za_subbox_size)
+    az_subbox_num = np.ceil(az_box.size / az_subbox_size).astype(int)
+    za_subbox_num = np.ceil(za_box.size / za_subbox_size).astype(int)
+    az_subboxes = np.array_split(az_box, az_subbox_num)
+    za_subboxes = np.array_split(za_box, za_subbox_num)
+    logger.info(f"Splitting into {az_subbox_num * za_subbox_num} subgrids")
+
+    # Get target position
+    ra_hms, dec_dms = archive.get_coordinates().getHMSDMS().split(" ")
+    target_position = SkyCoord(ra_hms, dec_dms, frame="icrs", unit=("hourangle", "deg"))
+    time = Time(eval_time, format="mjd")
+    altaz_frame = AltAz(location=MWA_LOCATION, obstime=time)
+    target_position_altaz = target_position.transform_to(altaz_frame)
+    target_psi = mwa_vcs_fluxcal.calcGeometricDelays(
+        tile_positions,
+        eval_freq,
+        target_position_altaz.alt.rad,
+        target_position_altaz.az.rad,
+    )
+
+    # Loop through subboxes and integrate
+    int_top = 0
+    int_bot = 0
+    for ii in range(az_subbox_num):
+        az_subbox = az_subboxes[ii]
+        for jj in range(za_subbox_num):
+            za_subbox = za_subboxes[jj]
+
+            logger.info(f"Computing subbox index az={ii} za={jj}")
+
+            # Map boxes to a 2D grid
+            az_subgrid, za_subgrid = np.meshgrid(az_subbox, za_subbox)
+            alt_subgrid = np.pi / 2 - za_subgrid
+            subgrid_coords = SkyCoord(
+                az=Angle(az_subgrid, u.rad),
+                alt=Angle(alt_subgrid, u.rad),
+                frame="altaz",
+                location=MWA_LOCATION,
+                obstime=time,
+            )
+
+            # Get the interpolated sky temperature
+            tsky = mwa_vcs_fluxcal.getSkyTempGrid(subgrid_coords, eval_freq / 1e6, logger=logger)
+
+            # Calculate the primary beam power
+            pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
+                context, eval_freq, alt_subgrid.flatten(), az_subgrid.flatten(), logger=logger
+            )["I"].reshape(az_subgrid.shape)
+
+            # Loop through pixels
+            tabp = np.zeros(shape=az_subgrid.shape, dtype=np.float64)
+            for mm in range(az_subbox.size):
+                for nn in range(za_subbox.size):
+                    look_psi = mwa_vcs_fluxcal.calcGeometricDelays(
+                        tile_positions,
+                        eval_freq,
+                        alt_subgrid[nn, mm],
+                        az_subgrid[nn, mm],
+                    )
+
+                    # Calculate the array factor power
+                    afp = mwa_vcs_fluxcal.calcArrayFactorPower(look_psi, target_psi, logger=logger)
+
+                    # Calculate the tied-array beam power
+                    tabp[nn, mm] = afp * pbp[nn, mm]
+
+            int_top += np.sum(tabp * tsky)
+            int_bot += np.sum(tabp)
+
+    tant = int_top / int_bot
+    logger.info(f"T_ant = {tant}")
 
     # Get T_rec
     trcvr_spline = mwa_vcs_fluxcal.splineRecieverTemp()
     if plot_trec:
         mwa_vcs_fluxcal.plot_trcvr_vc_freq(trcvr_spline, fctr, df, logger=logger)
 
-    # Make a meshgrid of the sky
-    grid_stepsize = np.deg2rad(1)
-    box_az = np.arange(0, 2 * np.pi, grid_stepsize)
-    box_za = np.arange(0, np.pi / 2, grid_stepsize)
-    grid_az, grid_za = np.meshgrid(box_az, box_za)
-    grid_alt = np.pi / 2 - grid_za
-    logger.info(f"Az/ZA grid will be computed with size {grid_az.shape}")
-
-    # Calculate the primary beam power
-    pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
-        context, fctr * 1e6, grid_alt.flatten(), grid_az.flatten(), logger=logger
-    )
-    grid_pbp = pbp["I"].reshape(grid_az.shape)
-    if plot_pb:
-        mwa_vcs_fluxcal.plot_primary_beam(grid_az, grid_za, grid_pbp, logger=logger)
-
-    # Calculate T_ant
-
     # Calculate T_sys
+    eta = 0.9
+    t0 = 290
+    tsys = eta * tant + (1 - eta) * t0 + trcvr_spline(eval_freq / 1e6)
+    logger.info(f"T_sys = {tsys}")
 
     # Calculate G
 

@@ -66,7 +66,7 @@ def getPrimaryBeamPower(
     za = np.pi / 2 - alt
     beam = PrimaryBeam(None)
 
-    logger.info("Calculating Jones matrices")
+    logger.debug("Calculating Jones matrices")
     jones = beam.calc_jones_array(
         np.array([az]).flatten(),
         np.array([za]).flatten(),
@@ -75,7 +75,7 @@ def getPrimaryBeamPower(
         np.ones_like(metadata.delays),
         zenithNorm,
     )
-    logger.info(f"Creating sky power Stokes {stokes} response")
+    logger.debug(f"Creating sky power Stokes {stokes} response")
     J = jones.reshape(-1, 2, 2)  # shape = (npix, 2, 2)
     K = np.conjugate(J).T  # = J^H, shape = (2, 2, npix)
 
@@ -253,7 +253,7 @@ def calcArrayFactorPower(
 
     # At this stage, the shape of target_w = (nant, n_ra, n_dec) and while
     # the shape of look_w = (nant,)
-    logger.info("Summing over antennas")
+    logger.debug("Summing over antennas")
     sum_over_antennas = np.tensordot(np.conjugate(look_w), target_w, axes=1)
     # From the numpy.tensordot documentation:
     #    The third argument can be a single non-negative integer_like scalar, N;
@@ -262,7 +262,7 @@ def calcArrayFactorPower(
 
     # The array factor power is normalised to the number of elements
     # included in the sum (i.e., length of the `look_w` vector).
-    logger.info("Averaging over array and converting to power")
+    logger.debug("Averaging over array and converting to power")
     afp = (np.absolute(sum_over_antennas) / look_w.size) ** 2
 
     return afp

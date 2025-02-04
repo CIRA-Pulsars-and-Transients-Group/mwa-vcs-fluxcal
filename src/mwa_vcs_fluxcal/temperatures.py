@@ -75,7 +75,7 @@ def getSkyTempGrid(
     obs_freq_mhz: float,
     sky_index: float = -2.55,
     logger: logging.Logger | None = None,
-) -> CubicSpline:
+) -> np.ndarray:
     """Estimate the sky temperature at a given coordinate, provided a metafits contenxt
     for frequency information. Returns a CubicSpline for interpolation across the observed
     frequency band.

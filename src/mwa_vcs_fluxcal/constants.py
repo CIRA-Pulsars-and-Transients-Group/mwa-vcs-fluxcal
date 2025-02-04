@@ -40,4 +40,4 @@ C0 = 299792458 * u.m / u.s
 # Boltzmann's Constant
 KB = 1.380649 * 10**-23 * u.J / u.K
 # Jansky conversion factor
-SI_TO_JY = 10**-26 * u.Jy / (u.W * u.m**-2 * u.Hz**-1)
+SI_TO_JY = 10**26 * u.Jy / (u.W * u.m**-2 * u.Hz**-1)

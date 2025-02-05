@@ -6,12 +6,19 @@ import logging
 
 import cmasher as cmr
 import matplotlib.pyplot as plt
+from matplotlib.path import Path
 import numpy as np
 from scipy.interpolate import CubicSpline
+from skimage import measure
 
 import mwa_vcs_fluxcal
 
-__all__ = ["plot_pulse_profile", "plot_trcvr_vc_freq", "plot_primary_beam"]
+__all__ = [
+    "plot_pulse_profile",
+    "plot_trcvr_vc_freq",
+    "plot_primary_beam",
+    "tesellate_primary_beam",
+]
 
 plt.rcParams["mathtext.fontset"] = "dejavuserif"
 plt.rcParams["text.usetex"] = True
@@ -225,6 +232,94 @@ def plot_primary_beam(
     cbar.ax.tick_params(labelsize=10)
     for contour_level in contour_levels:
         cbar.ax.axhline(contour_level, color="k", lw=1)
+
+    logger.info(f"Saving plot file: {savename}")
+    fig.savefig(savename)
+
+    plt.close()
+
+
+def tesellate_primary_beam(
+    grid_az: np.ndarray,
+    grid_za: np.ndarray,
+    grid_pbp: np.ndarray,
+    res: float,
+    savename: str = "primary_beam_tesselation.png",
+    logger: logging.Logger | None = None,
+) -> None:
+    """Tesellate the primary beam by finding the pixels inside contours.
+
+    Parameters
+    ----------
+    grid_az : `np.ndarray[float]`
+        A 2D grid of azimuth angles in radians.
+    grid_za : `np.ndarray[float]`
+        A 2D grid of zenith angles in radians.
+    grid_pbp : `np.ndarray[float]`
+        A 2D grid of powers.
+    res : `float`
+        The resolution of the grid in radians.
+    savename : `str`, optional
+        The filename to save the plot as. Default: "primary_beam_tesselation.png".
+    logger : `logging.Logger`, optional
+        A logger to use. Default: `None`.
+    """
+    cmap = plt.get_cmap("cmr.arctic_r")
+    fig, axes = plt.subplots(
+        nrows=2,
+        ncols=1,
+        figsize=(5, 8),
+        dpi=400,
+        tight_layout=True,
+        subplot_kw={"projection": "polar"},
+    )
+
+    axes[0].pcolormesh(
+        grid_az,
+        grid_za,
+        grid_pbp,
+        vmax=1.0,
+        vmin=0.01,
+        rasterized=True,
+        shading="auto",
+        cmap=cmap,
+    )
+
+    # pbp/xv/yv have dimension order (za, az) which we will label (y, x)
+    yv, xv = np.meshgrid(np.arange(grid_pbp.shape[1]), np.arange(grid_pbp.shape[0]))
+
+    # Create an (N,2) array of pixel coordinates
+    points = np.vstack((xv.ravel(), yv.ravel())).T
+
+    contours = measure.find_contours(grid_pbp, 0.001)
+
+    mask = np.full(shape=grid_pbp.shape, fill_value=False)
+    for contour in contours:
+        path = Path(contour)
+        submask = path.contains_points(points, radius=-1).reshape(grid_pbp.shape)
+        mask = np.logical_or(mask, submask)
+        for ax in axes:
+            ax.plot(
+                contour[:, 1] * res,
+                contour[:, 0] * res,
+                color="tab:red",
+                linewidth=0.7,
+                alpha=0.7,
+            )
+
+    axes[1].pcolormesh(grid_az, grid_za, mask, rasterized=True, shading="auto", cmap=cmap)
+
+    for ax in axes:
+        ax.set_theta_zero_location("N")
+        ax.set_theta_direction(-1)
+        ax.set_rlabel_position(157.5)
+        ax.grid(visible=False)
+        ax.grid(ls=":", lw=0.5, color="0.5")
+        ax.set_ylim(np.radians([0, 90]))
+        ax.set_yticks(np.radians([20, 40, 60, 80]))
+        ax.set_yticklabels([])
+        ax.set_xlabel("Azimuth Angle [deg]", labelpad=5)
+        ax.set_ylabel("Zenith Angle [deg]", labelpad=30)
 
     logger.info(f"Saving plot file: {savename}")
     fig.savefig(savename)

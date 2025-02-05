@@ -295,7 +295,14 @@ def tesellate_primary_beam(
 
     mask = np.full(shape=grid_pbp.shape, fill_value=False)
     for contour in contours:
-        path = Path(contour)
+        contour_fill = contour
+        if np.isclose((contour[0, 1] - contour[-1, 1]) * res, 2 * np.pi, atol=np.deg2rad(1)):
+            az_l, az_r = 0, grid_pbp.shape[1]
+            za_b, za_ul, za_ur = 0, contour[0, 0], contour[-1, 0]
+            loop = [[za_ul, az_l], [za_b, az_l], [za_b, az_r], [za_ur, az_r]]
+            contour_fill = np.append(contour, loop, axis=0)
+
+        path = Path(contour_fill)
         submask = path.contains_points(points, radius=-1).reshape(grid_pbp.shape)
         mask = np.logical_or(mask, submask)
         for ax in axes:
@@ -314,7 +321,7 @@ def tesellate_primary_beam(
         ax.set_theta_direction(-1)
         ax.set_rlabel_position(157.5)
         ax.grid(visible=False)
-        ax.grid(ls=":", lw=0.5, color="0.5")
+        # ax.grid(ls=":", lw=0.5, color="0.5")
         ax.set_ylim(np.radians([0, 90]))
         ax.set_yticks(np.radians([20, 40, 60, 80]))
         ax.set_yticklabels([])

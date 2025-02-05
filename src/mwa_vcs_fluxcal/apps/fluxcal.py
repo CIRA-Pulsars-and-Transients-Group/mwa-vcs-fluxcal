@@ -183,6 +183,7 @@ def main(
     az_box = np.arange(az_range[0].radian, az_range[1].radian, grid_res.radian)
     za_box = np.arange(za_range[0].radian, za_range[1].radian, grid_res.radian)
     logger.info(f"Grid size (az,za) = ({az_box.size},{za_box.size})")
+    logger.info(f"Total pixel count = {az_box.size * za_box.size}")
 
     # Calculate the solid angle pixel size as a column vector
     pixel_area = grid_res * grid_res * np.sin(za_box.reshape(-1, 1))

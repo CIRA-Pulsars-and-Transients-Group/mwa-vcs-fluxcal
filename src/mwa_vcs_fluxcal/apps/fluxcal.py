@@ -162,9 +162,9 @@ def main(
     eval_time = mjdctr
     az_range = (Angle(0, u.rad), Angle(2 * np.pi, u.rad))
     za_range = (Angle(0, u.rad), Angle(np.pi / 2, u.rad))
-    grid_res = Angle(10, u.arcmin)
-    az_subbox_size = 500
-    za_subbox_size = 500
+    grid_res = Angle(1, u.arcmin)
+    az_subbox_size = 2160
+    za_subbox_size = 540
     logger.info(f"Grid resolution = {grid_res.to_string()}")
 
     if plot_pb:
@@ -185,7 +185,7 @@ def main(
     logger.info(f"Grid size (az,za) = ({az_box.size},{za_box.size})")
 
     # Calculate the solid angle pixel size as a column vector
-    pixel_size = grid_res * grid_res * np.sin(za_box.reshape(-1, 1))
+    pixel_area = grid_res * grid_res * np.sin(za_box.reshape(-1, 1))
 
     # Divide the box into subboxes with maximum size (az_subbox_size, za_subbox_size)
     az_subbox_num = np.ceil(az_box.size / az_subbox_size).astype(int)
@@ -194,17 +194,19 @@ def main(
     za_subboxes = np.array_split(za_box, za_subbox_num)
     logger.info(f"Splitting into {az_subbox_num * za_subbox_num} subgrids")
 
-    # Get target position
+    # Get the sky coordinates of the pulsar
     ra_hms, dec_dms = archive.get_coordinates().getHMSDMS().split(" ")
     target_position = SkyCoord(ra_hms, dec_dms, frame="icrs", unit=("hourangle", "deg"))
     time = Time(eval_time, format="mjd")
     altaz_frame = AltAz(location=MWA_LOCATION, obstime=time)
-    target_position_altaz = target_position.transform_to(altaz_frame)
-    target_psi = mwa_vcs_fluxcal.calcGeometricDelays(
+    pulsar_position_altaz = target_position.transform_to(altaz_frame)
+
+    # Define a "look" vector pointing towards the pulsar
+    look_psi = mwa_vcs_fluxcal.calcGeometricDelays(
         tile_positions,
         eval_freq.to(u.Hz).value,
-        target_position_altaz.alt.rad,
-        target_position_altaz.az.rad,
+        pulsar_position_altaz.alt.rad,
+        pulsar_position_altaz.az.rad,
     )
 
     # Loop through subboxes and integrate
@@ -243,36 +245,29 @@ def main(
                 logger=logger,
             )["I"].reshape(az_subgrid.shape)
 
-            # Loop through pixels
-            afp = np.zeros(shape=az_subgrid.shape, dtype=np.float64)
-            tabp = np.zeros(shape=az_subgrid.shape, dtype=np.float64)
-            for mm in range(az_subbox.size):
-                for nn in range(za_subbox.size):
-                    look_psi = mwa_vcs_fluxcal.calcGeometricDelays(
-                        tile_positions,
-                        eval_freq.to(u.Hz).value,
-                        alt_subgrid[nn, mm],
-                        az_subgrid[nn, mm],
-                    )
+            # Define a grid of "target" vectors pointing towards each pixel
+            target_psi = mwa_vcs_fluxcal.calcGeometricDelays(
+                tile_positions,
+                eval_freq.to(u.Hz).value,
+                alt_subgrid,
+                az_subgrid,
+            )
 
-                    # Calculate the array factor power
-                    afp[nn, mm] = mwa_vcs_fluxcal.calcArrayFactorPower(
-                        look_psi, target_psi, logger=logger
-                    )
+            # Calculate the array factor power
+            afp = mwa_vcs_fluxcal.calcArrayFactorPower(look_psi, target_psi, logger=logger)
 
             # Calculate the tied-array beam power
             tabp = afp * pbp
 
             # Get sin(theta)*d(theta)*d(phi) in rad^2
-            pixel_size_subbox = pixel_size.value[
+            pixel_area_subbox = pixel_area.value[
                 jj * za_subbox_num : jj * za_subbox_num + za_subbox.size, :
             ]
-            pixel_size_grid = np.repeat(pixel_size_subbox, az_subbox.size, axis=1)
 
             # Compute the integral
-            int_top += np.sum(tabp * tsky * pixel_size_grid)
-            int_bot += np.sum(tabp * pixel_size_grid)
-            Omega_A += np.sum(afp * pixel_size_grid)
+            int_top += np.sum(tabp * tsky * pixel_area_subbox)
+            int_bot += np.sum(tabp * pixel_area_subbox)
+            Omega_A += np.sum(afp * pixel_area_subbox)
 
     # Antenna temperature
     tant = int_top / int_bot * u.K

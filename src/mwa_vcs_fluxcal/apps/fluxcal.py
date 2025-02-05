@@ -176,7 +176,7 @@ def main(
         grid_az, grid_za = np.meshgrid(box_az, box_za)
         grid_alt = np.pi / 2 - grid_za
         grid_pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
-            context, eval_freq.to(u.Hz).value, grid_alt.flatten(), grid_az.flatten(), logger=logger
+            context, eval_freq.to(u.Hz).value, grid_alt, grid_az, logger=logger
         )["I"].reshape(grid_az.shape)
         mwa_vcs_fluxcal.plot_primary_beam(grid_az, grid_za, grid_pbp, logger=logger)
         mwa_vcs_fluxcal.tesellate_primary_beam(
@@ -245,8 +245,8 @@ def main(
             pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
                 context,
                 eval_freq.to(u.Hz).value,
-                alt_subgrid.flatten(),
-                az_subgrid.flatten(),
+                alt_subgrid,
+                az_subgrid,
                 logger=logger,
             )["I"].reshape(az_subgrid.shape)
 

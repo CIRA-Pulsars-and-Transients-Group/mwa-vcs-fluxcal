@@ -6,8 +6,8 @@ import logging
 
 import cmasher as cmr
 import matplotlib.pyplot as plt
-from matplotlib.path import Path
 import numpy as np
+from matplotlib.path import Path
 from scipy.interpolate import CubicSpline
 from skimage import measure
 

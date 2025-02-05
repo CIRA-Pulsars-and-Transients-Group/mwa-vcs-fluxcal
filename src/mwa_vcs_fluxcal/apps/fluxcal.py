@@ -162,7 +162,7 @@ def main(
     eval_time = mjdctr
     az_range = (Angle(0, u.rad), Angle(2 * np.pi, u.rad))
     za_range = (Angle(0, u.rad), Angle(np.pi / 2, u.rad))
-    grid_res = Angle(1, u.arcmin)
+    grid_res = Angle(5, u.arcmin)
     az_subbox_size = 2160
     za_subbox_size = 540
     logger.info(f"Grid resolution = {grid_res.to_string()}")
@@ -298,6 +298,10 @@ def main(
     gain = Aeff / (2 * KB) * SI_TO_JY
     gain = gain.to(u.K * u.Jy**-1)
     logger.info(f"G = {gain.to_string()}")
+
+    # SEFD
+    sefd = tsys / gain
+    logger.info(f"SEFD = {sefd.to_string()}")
 
     # Radiometer equation
     fc = 0.7

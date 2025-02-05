@@ -7,11 +7,12 @@ import click
 import mwalib
 import numpy as np
 import psrchive
+from astropy.constants import c, k_B
 from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.time import Time
 
 import mwa_vcs_fluxcal
-from mwa_vcs_fluxcal import C0, KB, MWA_LOCATION, SI_TO_JY
+from mwa_vcs_fluxcal import MWA_LOCATION, SI_TO_JY
 
 """
 The flux density can be estimated using the radiometer equation:
@@ -162,7 +163,7 @@ def main(
     eval_time = mjdctr
     az_range = (Angle(0, u.rad), Angle(2 * np.pi, u.rad))
     za_range = (Angle(0, u.rad), Angle(np.pi / 2, u.rad))
-    grid_res = Angle(5, u.arcmin)
+    grid_res = Angle(10, u.arcmin)
     az_subbox_size = 2160
     za_subbox_size = 540
     logger.info(f"Grid resolution = {grid_res.to_string()}")
@@ -295,11 +296,11 @@ def main(
     logger.info(f"T_sys = {tsys.to_string()}")
 
     # Effective area
-    Aeff = eta * (4 * np.pi * u.radian**2 * C0**2 / (eval_freq.to(u.s**-1) ** 2 * Omega_A))
+    Aeff = eta * (4 * np.pi * u.radian**2 * c**2 / (eval_freq.to(u.s**-1) ** 2 * Omega_A))
     logger.info(f"A_eff = {Aeff.to_string()}")
 
     # Gain
-    gain = Aeff / (2 * KB) * SI_TO_JY
+    gain = Aeff / (2 * k_B) * SI_TO_JY
     gain = gain.to(u.K * u.Jy**-1)
     logger.info(f"G = {gain.to_string()}")
 

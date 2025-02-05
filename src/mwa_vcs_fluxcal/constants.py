@@ -14,8 +14,6 @@ __all__ = [
     "MWA_LOCATION",
     "SKY_TEMP_MAP_FILE",
     "RCVR_TEMP_FILE",
-    "C0",
-    "KB",
     "SI_TO_JY",
 ]
 
@@ -34,10 +32,5 @@ SKY_TEMP_MAP_FILE = pkg_resources.resource_filename(
 )
 RCVR_TEMP_FILE = pkg_resources.resource_filename("mwa_vcs_fluxcal", "data/MWA_Trcvr_tile_56.csv")
 
-# Physical constants
-# Speed of light
-C0 = 299792458 * u.m / u.s
-# Boltzmann's Constant
-KB = 1.380649 * 10**-23 * u.J / u.K
 # Jansky conversion factor
 SI_TO_JY = 10**26 * u.Jy / (u.W * u.m**-2 * u.Hz**-1)

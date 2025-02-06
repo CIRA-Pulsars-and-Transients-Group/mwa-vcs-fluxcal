@@ -173,9 +173,9 @@ def main(
     pb_box_az = np.arange(az_range[0].radian, az_range[1].radian, pb_grid_res)
     pb_box_za = np.arange(za_range[0].radian, za_range[1].radian, pb_grid_res)
     pb_grid_az, pb_grid_za = np.meshgrid(pb_box_az, pb_box_za)
-    grid_alt = np.pi / 2 - pb_grid_za
+    pb_grid_alt = np.pi / 2 - pb_grid_za
     grid_pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
-        context, eval_freq.to(u.Hz).value, grid_alt, pb_grid_az, logger=logger
+        context, eval_freq.to(u.Hz).value, pb_grid_alt, pb_grid_az, logger=logger
     )["I"].reshape(pb_grid_az.shape)
     pixel_mask = mwa_vcs_fluxcal.tesellate_primary_beam(
         pb_grid_az, pb_grid_za, grid_pbp, pb_grid_res, plot=plot_pb, logger=logger

@@ -168,20 +168,18 @@ def main(
     za_subbox_size = 540
     logger.info(f"Grid resolution = {grid_res.to_string()}")
 
-    if plot_pb:
-        # Make a low-res map of the primary beam
-        grid_stepsize = np.deg2rad(1)
-        box_az = np.arange(az_range[0].radian, az_range[1].radian, grid_stepsize)
-        box_za = np.arange(za_range[0].radian, za_range[1].radian, grid_stepsize)
-        grid_az, grid_za = np.meshgrid(box_az, box_za)
-        grid_alt = np.pi / 2 - grid_za
-        grid_pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
-            context, eval_freq.to(u.Hz).value, grid_alt, grid_az, logger=logger
-        )["I"].reshape(grid_az.shape)
-        mwa_vcs_fluxcal.plot_primary_beam(grid_az, grid_za, grid_pbp, logger=logger)
-        mwa_vcs_fluxcal.tesellate_primary_beam(
-            grid_az, grid_za, grid_pbp, grid_stepsize, logger=logger
-        )
+    # Create a low-resolution map of the primary beam
+    pb_grid_res = np.deg2rad(1)
+    pb_box_az = np.arange(az_range[0].radian, az_range[1].radian, pb_grid_res)
+    pb_box_za = np.arange(za_range[0].radian, za_range[1].radian, pb_grid_res)
+    pb_grid_az, pb_grid_za = np.meshgrid(pb_box_az, pb_box_za)
+    grid_alt = np.pi / 2 - pb_grid_za
+    grid_pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
+        context, eval_freq.to(u.Hz).value, grid_alt, pb_grid_az, logger=logger
+    )["I"].reshape(pb_grid_az.shape)
+    pixel_mask = mwa_vcs_fluxcal.tesellate_primary_beam(
+        pb_grid_az, pb_grid_za, grid_pbp, pb_grid_res, plot=plot_pb, logger=logger
+    )
 
     # Define a box covering the full range in Az/ZA
     az_box = np.arange(az_range[0].radian, az_range[1].radian, grid_res.radian)

@@ -8,6 +8,8 @@ import numpy as np
 from astropy.constants import c as sol
 from mwa_hyperbeam import FEEBeam as PrimaryBeam
 from mwalib import MetafitsContext, Pol
+from scipy.spatial import ConvexHull
+from scipy.spatial.distance import cdist
 
 import mwa_vcs_fluxcal
 from mwa_vcs_fluxcal import MWA_CENTRE_CABLE_LEN
@@ -17,6 +19,7 @@ __all__ = [
     "extractWorkingTilePositions",
     "calcGeometricDelays",
     "calcArrayFactorPower",
+    "find_max_baseline",
 ]
 
 
@@ -266,3 +269,40 @@ def calcArrayFactorPower(
     afp = (np.absolute(sum_over_antennas) / look_w.size) ** 2
 
     return afp
+
+
+def find_max_baseline(context: MetafitsContext) -> list:
+    """Use a Convex Hull method to calculate the maximum distance
+    between two tiles given their 3D coordinates.
+
+    :param context: A mwalib.MetafitsContext object that contains
+        tile-position information.
+    :type context: MetafitsContext
+    :return: The maximum distance, and corresponding pair of
+        coordinates.
+    :rtype: list, 3-elements
+    """
+    tile_positions = np.array(
+        [
+            np.array([rf.east_m, rf.north_m, rf.height_m])
+            for rf in context.rf_inputs
+            if rf.pol == Pol.X
+        ]
+    )
+    tile_flags = np.array([rf.flagged for rf in context.rf_inputs if rf.pol == Pol.X])
+    tile_positions = np.delete(tile_positions, np.where(tile_flags), axis=0)
+
+    # Create the convex hull
+    hull = ConvexHull(tile_positions)
+
+    # Extract the points forming the hull
+    hullpoints = tile_positions[hull.vertices, :]
+
+    # Naive way of finding the best pair in O(H^2) time if H is number
+    # of points on the hull
+    hdist = cdist(hullpoints, hullpoints, metric="euclidean")
+
+    # Get the farthest apart points
+    bestpair = np.unravel_index(hdist.argmax(), hdist.shape)
+
+    return [hdist.max(), hullpoints[bestpair[0]], hullpoints[bestpair[1]]]

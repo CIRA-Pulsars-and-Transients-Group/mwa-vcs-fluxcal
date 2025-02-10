@@ -143,11 +143,6 @@ def main(
         logger.info("No metafits file provided. Exiting.")
         exit(0)
 
-    # Prepare metadata
-    logger.info(f"Loading metafits: {metafits}")
-    context = mwalib.MetafitsContext(metafits)
-    tile_positions = mwa_vcs_fluxcal.extractWorkingTilePositions(context)
-
     # Get frequency and time metadata from archive
     fctr = archive.get_centre_frequency() * u.MHz
     df = archive.get_bandwidth() * u.MHz
@@ -158,12 +153,24 @@ def main(
     logger.info(f"fctr={fctr.to_string()}, df={df.to_string()}")
     logger.info(f"mjdctr={mjdctr}, dt={dt.to_string()}")
 
+    # Prepare metadata
+    logger.info(f"Loading metafits: {metafits}")
+    context = mwalib.MetafitsContext(metafits)
+    tile_positions = mwa_vcs_fluxcal.extractWorkingTilePositions(context)
+
+    # Calculate the beam width
+    max_baseline, _, _ = mwa_vcs_fluxcal.find_max_baseline(context)
+    max_baseline *= u.m
+    width = ((c / fctr.to(1 / u.s)) / max_baseline) * u.rad
+    logger.info(f"Maximum baseline: {max_baseline.to_string()}")
+    logger.info(f"Beam width ~ lambda/D: {width.to(u.arcminute).to_string()}")
+
     # Hardcode these for now
     eval_freq = fctr
     eval_time = mjdctr
     az_range = (Angle(0, u.rad), Angle(2 * np.pi, u.rad))
     za_range = (Angle(0, u.rad), Angle(np.pi / 2, u.rad))
-    fine_grid_res = Angle(5, u.arcmin)
+    fine_grid_res = Angle(0.5, u.arcmin)
     coarse_grid_res = Angle(30, u.arcmin)
     logger.info(f"Fine grid resolution = {fine_grid_res.to_string()}")
     logger.info(f"Coarse grid resolution = {coarse_grid_res.to_string()}")

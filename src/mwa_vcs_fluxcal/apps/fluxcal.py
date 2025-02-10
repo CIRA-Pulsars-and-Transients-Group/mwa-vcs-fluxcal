@@ -163,39 +163,63 @@ def main(
     eval_time = mjdctr
     az_range = (Angle(0, u.rad), Angle(2 * np.pi, u.rad))
     za_range = (Angle(0, u.rad), Angle(np.pi / 2, u.rad))
-    grid_res = Angle(10, u.arcmin)
-    az_subbox_size = 2160
-    za_subbox_size = 540
-    logger.info(f"Grid resolution = {grid_res.to_string()}")
+    fine_grid_res = Angle(5, u.arcmin)
+    coarse_grid_res = Angle(30, u.arcmin)
+    logger.info(f"Fine grid resolution = {fine_grid_res.to_string()}")
+    logger.info(f"Coarse grid resolution = {coarse_grid_res.to_string()}")
 
-    # Create a low-resolution map of the primary beam
-    pb_grid_res = np.deg2rad(1)
-    pb_box_az = np.arange(az_range[0].radian, az_range[1].radian, pb_grid_res)
-    pb_box_za = np.arange(za_range[0].radian, za_range[1].radian, pb_grid_res)
-    pb_grid_az, pb_grid_za = np.meshgrid(pb_box_az, pb_box_za)
-    pb_grid_alt = np.pi / 2 - pb_grid_za
+    # Create a coarse meshgrid so that we can estimate the sky area with
+    # significant power in the primary beam
+    az_box_coarse = np.arange(az_range[0].radian, az_range[1].radian, coarse_grid_res.radian)
+    za_box_coarse = np.arange(za_range[0].radian, za_range[1].radian, coarse_grid_res.radian)
+    az_grid_coarse, za_grid_coarse = np.meshgrid(az_box_coarse, za_box_coarse)
+    alt_grid_coarse = np.pi / 2 - za_grid_coarse
+
+    # Compute the primary beam power
     grid_pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
-        context, eval_freq.to(u.Hz).value, pb_grid_alt, pb_grid_az, logger=logger
-    )["I"].reshape(pb_grid_az.shape)
-    pixel_mask = mwa_vcs_fluxcal.tesellate_primary_beam(
-        pb_grid_az, pb_grid_za, grid_pbp, pb_grid_res, plot=plot_pb, logger=logger
+        context, eval_freq.to(u.Hz).value, alt_grid_coarse, az_grid_coarse, logger=logger
+    )["I"].reshape(az_grid_coarse.shape)
+
+    # Select the coarse pixels within the primary beam
+    az_grid_coarse_inbeam, za_grid_coarse_inbeam, _ = mwa_vcs_fluxcal.tesellate_primary_beam(
+        az_grid_coarse,
+        za_grid_coarse,
+        grid_pbp,
+        coarse_grid_res.radian,
+        plot=plot_pb,
+        logger=logger,
     )
 
-    # Define a box covering the full range in Az/ZA
-    az_box = np.arange(az_range[0].radian, az_range[1].radian, grid_res.radian)
-    za_box = np.arange(za_range[0].radian, za_range[1].radian, grid_res.radian)
-    logger.info(f"Grid size (az,za) = ({az_box.size},{za_box.size})")
-    logger.info(f"Total pixel count = {az_box.size * za_box.size}")
+    # Flatten the masked coarse meshgrid. Since the coarse pixels will be
+    # up-sampled later, we'll use the shorthand 'blocks' to mean the coarse
+    # pixels from the flattened meshgrid.
+    az_blocks = az_grid_coarse_inbeam.flatten()
+    za_blocks = za_grid_coarse_inbeam.flatten()
 
-    # Calculate the solid angle pixel size as a column vector
-    pixel_area = grid_res * grid_res * np.sin(za_box.reshape(-1, 1))
+    # Calculate how many blocks there are before/after masking
+    num_blocks_tot = az_blocks.size
+    nan_blocks = np.isnan(az_blocks)
+    az_blocks = az_blocks[~nan_blocks]
+    za_blocks = za_blocks[~nan_blocks]
+    num_blocks_cut = az_blocks.size
+    logger.info(f"Integrating {num_blocks_cut / num_blocks_tot * 100:.2f}% of the sky")
 
-    # Divide the box into subboxes with maximum size (az_subbox_size, za_subbox_size)
-    az_subbox_num = np.ceil(az_box.size / az_subbox_size).astype(int)
-    za_subbox_num = np.ceil(za_box.size / za_subbox_size).astype(int)
-    az_subboxes = np.array_split(az_box, az_subbox_num)
-    za_subboxes = np.array_split(za_box, za_subbox_num)
-    logger.info(f"Splitting into {az_subbox_num * za_subbox_num} subgrids")
+    # How many fine pixels per job?
+    max_pixels_per_job = 10**5
+
+    # How many fine pixels per coarse pixel?
+    upscale_ratio = (coarse_grid_res.arcmin / fine_grid_res.arcmin) ** 2
+
+    # How many coarse pixels per job?
+    max_blocks_per_job = max_pixels_per_job // upscale_ratio
+
+    # How many jobs will we require?
+    num_jobs = np.ceil(num_blocks_cut / max_blocks_per_job).astype(int)
+    logger.info(f"Will compute {num_blocks_cut * upscale_ratio:.0f} pixels in {num_jobs} jobs")
+
+    # Split up the blocks array into groups of one or more blocks (i.e. jobs)
+    az_jobs = np.array_split(az_blocks, num_jobs)
+    za_jobs = np.array_split(za_blocks, num_jobs)
 
     # Get the sky coordinates of the pulsar
     ra_hms, dec_dms = archive.get_coordinates().getHMSDMS().split(" ")
@@ -216,61 +240,56 @@ def main(
     int_top = 0
     int_bot = 0
     Omega_A = 0
-    for ii in range(az_subbox_num):
-        az_subbox = az_subboxes[ii]
-        for jj in range(za_subbox_num):
-            za_subbox = za_subboxes[jj]
+    for ii in range(num_jobs):
+        if ii % 10 == 0:
+            logger.info(f"Computing job {ii}")
 
-            logger.info(f"Computing subbox index az={ii} za={jj}")
+        az_job = az_jobs[ii]
+        za_job = za_jobs[ii]
 
-            # Map boxes to a 2D grid
-            az_subgrid, za_subgrid = np.meshgrid(az_subbox, za_subbox)
-            alt_subgrid = np.pi / 2 - za_subgrid
-            subgrid_coords = SkyCoord(
-                az=Angle(az_subgrid, u.rad),
-                alt=Angle(alt_subgrid, u.rad),
-                frame="altaz",
-                location=MWA_LOCATION,
-                obstime=time,
-            )
+        az_fine, za_fine = mwa_vcs_fluxcal.upsample_blocks(
+            az_job, za_job, coarse_grid_res.radian, fine_grid_res.radian
+        )
+        alt_fine = np.pi / 2 - za_fine
+        pix_coords = SkyCoord(
+            az=Angle(az_fine, u.rad),
+            alt=Angle(alt_fine, u.rad),
+            frame="altaz",
+            location=MWA_LOCATION,
+            obstime=time,
+        )
 
-            # Get the interpolated sky temperature
-            tsky = mwa_vcs_fluxcal.getSkyTempGrid(
-                subgrid_coords, eval_freq.to(u.MHz).value, logger=logger
-            )
+        # Get the interpolated sky temperature
+        tsky = mwa_vcs_fluxcal.getSkyTempGrid(pix_coords, eval_freq.to(u.MHz).value, logger=logger)
 
-            # Calculate the primary beam power
-            pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
-                context,
-                eval_freq.to(u.Hz).value,
-                alt_subgrid,
-                az_subgrid,
-                logger=logger,
-            )["I"].reshape(az_subgrid.shape)
+        # Calculate the primary beam power
+        pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
+            context,
+            eval_freq.to(u.Hz).value,
+            alt_fine,
+            az_fine,
+            logger=logger,
+        )["I"]
 
-            # Define a grid of "target" vectors pointing towards each pixel
-            target_psi = mwa_vcs_fluxcal.calcGeometricDelays(
-                tile_positions,
-                eval_freq.to(u.Hz).value,
-                alt_subgrid,
-                az_subgrid,
-            )
+        # Define a grid of "target" vectors pointing towards each pixel
+        target_psi = mwa_vcs_fluxcal.calcGeometricDelays(
+            tile_positions,
+            eval_freq.to(u.Hz).value,
+            alt_fine,
+            az_fine,
+        )
 
-            # Calculate the array factor power
-            afp = mwa_vcs_fluxcal.calcArrayFactorPower(look_psi, target_psi, logger=logger)
+        # Calculate the array factor power
+        afp = mwa_vcs_fluxcal.calcArrayFactorPower(look_psi, target_psi, logger=logger)
 
-            # Calculate the tied-array beam power
-            tabp = afp * pbp
+        # Calculate the tied-array beam power
+        tabp = afp * pbp
 
-            # Get sin(theta)*d(theta)*d(phi) in rad^2
-            pixel_area_subbox = pixel_area.value[
-                jj * za_subbox_num : jj * za_subbox_num + za_subbox.size, :
-            ]
-
-            # Compute the integral
-            int_top += np.sum(tabp * tsky * pixel_area_subbox)
-            int_bot += np.sum(tabp * pixel_area_subbox)
-            Omega_A += np.sum(afp * pixel_area_subbox)
+        # Compute the integral
+        pixel_area = fine_grid_res.radian * fine_grid_res.radian * np.sin(za_fine)
+        int_top += np.sum(tabp * tsky * pixel_area)
+        int_bot += np.sum(tabp * pixel_area)
+        Omega_A += np.sum(afp * pixel_area)
 
     # Antenna temperature
     tant = int_top / int_bot * u.K

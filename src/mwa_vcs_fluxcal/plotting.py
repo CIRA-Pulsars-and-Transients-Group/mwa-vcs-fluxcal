@@ -7,9 +7,7 @@ import logging
 import cmasher as cmr
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.path import Path
 from scipy.interpolate import CubicSpline
-from skimage import measure
 
 import mwa_vcs_fluxcal
 
@@ -17,7 +15,6 @@ __all__ = [
     "plot_pulse_profile",
     "plot_trcvr_vc_freq",
     "plot_primary_beam",
-    "tesellate_primary_beam",
 ]
 
 plt.rcParams["mathtext.fontset"] = "dejavuserif"
@@ -237,115 +234,3 @@ def plot_primary_beam(
     fig.savefig(savename)
 
     plt.close()
-
-
-def tesellate_primary_beam(
-    grid_az: np.ndarray[float],
-    grid_za: np.ndarray[float],
-    grid_pbp: np.ndarray[float],
-    grid_res: float,
-    plevel: float = 0.001,
-    plot: bool = True,
-    savename: str = "primary_beam_tesselation.png",
-    logger: logging.Logger | None = None,
-) -> np.ndarray:
-    """Tesellate the primary beam by finding the pixels inside contours.
-
-    Parameters
-    ----------
-    grid_az : `np.ndarray[float]`
-        A 2D grid of azimuth angles in radians.
-    grid_za : `np.ndarray[float]`
-        A 2D grid of zenith angles in radians.
-    grid_pbp : `np.ndarray[float]`
-        A 2D grid of powers.
-    grid_res : `float`
-        The resolution of the grid in radians.
-    plevel : `float`
-        The zenith-normalised power level to use to draw the contours.
-    plot : `bool`
-        Make a plot showing the primary beam and the selected pixels.
-    savename : `str`, optional
-        The filename to save the plot as. Default: "primary_beam_tesselation.png".
-    logger : `logging.Logger`, optional
-        A logger to use. Default: `None`.
-
-    Returns
-    -------
-    mask : `np.ndarray[bool]`
-        A boolean mask in the shape of the grid indicating which pixels are
-        contained within the contour.
-    """
-    if plot:
-        cmap = plt.get_cmap("cmr.arctic_r")
-        fig, axes = plt.subplots(
-            nrows=2,
-            ncols=1,
-            figsize=(5, 8),
-            dpi=400,
-            tight_layout=True,
-            subplot_kw={"projection": "polar"},
-        )
-
-        axes[0].pcolormesh(
-            grid_az,
-            grid_za,
-            grid_pbp,
-            vmax=1.0,
-            vmin=0.01,
-            rasterized=True,
-            shading="auto",
-            cmap=cmap,
-        )
-
-    # pbp/xv/yv have dimension order (za, az) which we will label (y, x)
-    yv, xv = np.meshgrid(np.arange(grid_pbp.shape[1]), np.arange(grid_pbp.shape[0]))
-
-    # Create an (N,2) array of pixel coordinates
-    points = np.vstack((xv.ravel(), yv.ravel())).T
-
-    contours = measure.find_contours(grid_pbp, plevel)
-
-    mask = np.full(shape=grid_pbp.shape, fill_value=False)
-    for contour in contours:
-        contour_fill = contour
-        if np.isclose((contour[0, 1] - contour[-1, 1]) * grid_res, 2 * np.pi, rtol=0.1):
-            az_l, az_r = 0, grid_pbp.shape[1]
-            za_b, za_ul, za_ur = 0, contour[0, 0], contour[-1, 0]
-            loop = [[za_ul, az_l], [za_b, az_l], [za_b, az_r], [za_ur, az_r]]
-            contour_fill = np.append(contour, loop, axis=0)
-
-        path = Path(contour_fill)
-        submask = path.contains_points(points, radius=-1).reshape(grid_pbp.shape)
-        mask = np.logical_or(mask, submask)
-        if plot:
-            for ax in axes:
-                ax.plot(
-                    contour[:, 1] * grid_res,
-                    contour[:, 0] * grid_res,
-                    color="tab:red",
-                    linewidth=0.7,
-                    alpha=0.7,
-                )
-
-    if plot:
-        axes[1].pcolormesh(grid_az, grid_za, mask, rasterized=True, shading="auto", cmap=cmap)
-
-        for ax in axes:
-            ax.set_theta_zero_location("N")
-            ax.set_theta_direction(-1)
-            ax.set_rlabel_position(157.5)
-            ax.grid(visible=False)
-            # ax.grid(ls=":", lw=0.5, color="0.5")
-            ax.set_ylim(np.radians([0, 90]))
-            ax.set_yticks(np.radians([20, 40, 60, 80]))
-            ax.set_yticklabels([])
-            ax.set_xlabel("Azimuth Angle [deg]", labelpad=5)
-            ax.set_ylabel("Zenith Angle [deg]", labelpad=30)
-
-        logger.info(f"Saving plot file: {savename}")
-        fig.savefig(savename)
-
-        plt.close()
-
-    return mask

@@ -7,6 +7,7 @@ import logging
 import cmasher as cmr
 import matplotlib.pyplot as plt
 import numpy as np
+from astropy.coordinates import SkyCoord
 from matplotlib.path import Path
 from skimage import measure
 
@@ -27,6 +28,7 @@ def tesellate_primary_beam(
     res: float,
     plevel: float = 0.001,
     plot: bool = True,
+    pulsar_coords: SkyCoord = None,
     savename: str = "primary_beam_masked.png",
     logger: logging.Logger | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -46,6 +48,8 @@ def tesellate_primary_beam(
         The zenith-normalised power level to use to find the contours.
     plot : `bool`
         Make a plot showing the masked primary beam.
+    pulsar_coords : `SkyCoord`, optional
+        The coordinates of the target pulsar to plot in the beam. Default: None.
     savename : `str`, optional
         The filename to save the plot as. Default: "primary_beam_masked.png".
     logger : `logging.Logger`, optional
@@ -103,6 +107,16 @@ def tesellate_primary_beam(
             figsize=(6, 5), dpi=300, tight_layout=True, subplot_kw={"projection": "polar"}
         )
         im = ax.pcolormesh(az, za, np.log10(pbp_inbeam), rasterized=True, shading="auto", cmap=cmap)
+        if pulsar_coords is not None:
+            ax.plot(
+                pulsar_coords.az.radian,
+                np.pi / 2 - pulsar_coords.alt.radian,
+                linestyle="none",
+                marker="o",
+                color="tab:red",
+                ms=3,
+                mfc="none",
+            )
         cbar = plt.colorbar(im, pad=0.13, ticks=[-3, -2, -1, 0])
         cbar.ax.set_ylim([-3, 0])
         cbar.ax.set_yticklabels(["0.1", "1", "10", "100"])

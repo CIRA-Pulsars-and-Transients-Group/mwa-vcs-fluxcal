@@ -170,10 +170,25 @@ def main(
     eval_time = mjdctr
     az_range = (Angle(0, u.rad), Angle(2 * np.pi, u.rad))
     za_range = (Angle(0, u.rad), Angle(np.pi / 2, u.rad))
-    fine_grid_res = Angle(0.5, u.arcmin)
+    fine_grid_res = Angle(1, u.arcmin)
     coarse_grid_res = Angle(30, u.arcmin)
     logger.info(f"Fine grid resolution = {fine_grid_res.to_string()}")
     logger.info(f"Coarse grid resolution = {coarse_grid_res.to_string()}")
+
+    # Get the sky coordinates of the pulsar
+    ra_hms, dec_dms = archive.get_coordinates().getHMSDMS().split(" ")
+    pulsar_position = SkyCoord(ra_hms, dec_dms, frame="icrs", unit=("hourangle", "deg"))
+    time = Time(eval_time, format="mjd")
+    altaz_frame = AltAz(location=MWA_LOCATION, obstime=time)
+    pulsar_position_altaz = pulsar_position.transform_to(altaz_frame)
+
+    # Define a "look" vector pointing towards the pulsar
+    look_psi = mwa_vcs_fluxcal.calcGeometricDelays(
+        tile_positions,
+        eval_freq.to(u.Hz).value,
+        pulsar_position_altaz.alt.rad,
+        pulsar_position_altaz.az.rad,
+    )
 
     # Create a coarse meshgrid so that we can estimate the sky area with
     # significant power in the primary beam
@@ -194,6 +209,7 @@ def main(
         grid_pbp,
         coarse_grid_res.radian,
         plot=plot_pb,
+        pulsar_coords=pulsar_position_altaz,
         logger=logger,
     )
 
@@ -227,21 +243,6 @@ def main(
     # Split up the blocks array into groups of one or more blocks (i.e. jobs)
     az_jobs = np.array_split(az_blocks, num_jobs)
     za_jobs = np.array_split(za_blocks, num_jobs)
-
-    # Get the sky coordinates of the pulsar
-    ra_hms, dec_dms = archive.get_coordinates().getHMSDMS().split(" ")
-    target_position = SkyCoord(ra_hms, dec_dms, frame="icrs", unit=("hourangle", "deg"))
-    time = Time(eval_time, format="mjd")
-    altaz_frame = AltAz(location=MWA_LOCATION, obstime=time)
-    pulsar_position_altaz = target_position.transform_to(altaz_frame)
-
-    # Define a "look" vector pointing towards the pulsar
-    look_psi = mwa_vcs_fluxcal.calcGeometricDelays(
-        tile_positions,
-        eval_freq.to(u.Hz).value,
-        pulsar_position_altaz.alt.rad,
-        pulsar_position_altaz.az.rad,
-    )
 
     # Loop through subboxes and integrate
     int_top = 0

@@ -65,7 +65,7 @@ https://ui.adsabs.harvard.edu/abs/2017ApJ...851...20M/abstract
 @click.option(
     "-L",
     "log_level",
-    type=click.Choice(["DEBUG", "INFO", "ERROR", "CRITICAL"], case_sensitive=False),
+    type=click.Choice(list(mwa_vcs_fluxcal.get_log_levels()), case_sensitive=False),
     default="INFO",
     help="The logger verbosity level.",
 )

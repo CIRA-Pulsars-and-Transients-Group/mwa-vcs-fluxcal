@@ -194,7 +194,7 @@ def main(
     results = dict(
         T_ant=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.K),
         T_sys=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.K),
-        Omega_A=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.radian**2),
+        Omega_A=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.sr),
         A_eff=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.m**2),
         G=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.K * u.Jy**-1),
         SEFD=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.Jy),
@@ -371,10 +371,10 @@ def main(
         T_sys = eta * T_ant + (1 - eta) * t0 + T_rec[ii]
 
         # Beam solid angle
-        Omega_A = 4 * np.pi * Omega_A * u.radian**2
+        Omega_A = 4 * np.pi * Omega_A * u.sr
 
         # Effective area
-        A_eff = eta * (4 * np.pi * u.radian**2 * c**2 / (eval_freqs[ii].to(u.s**-1) ** 2 * Omega_A))
+        A_eff = eta * (4 * np.pi * u.sr * c**2 / (eval_freqs[ii].to(u.s**-1) ** 2 * Omega_A))
 
         # Gain
         G = A_eff / (2 * k_B) * SI_TO_JY

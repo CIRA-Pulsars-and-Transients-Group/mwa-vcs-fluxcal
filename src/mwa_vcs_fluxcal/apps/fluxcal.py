@@ -2,6 +2,10 @@
 # Licensed under the Academic Free License version 3.0 #
 ########################################################
 
+# This script is an implementation of the flux density calibration
+# method described in Meyers et al. (2017), hereafter abbreviated M+17.
+# https://ui.adsabs.harvard.edu/abs/2017ApJ...851...20M/abstract
+
 import logging
 
 import astropy.units as u
@@ -17,51 +21,6 @@ from tqdm import tqdm
 
 import mwa_vcs_fluxcal
 from mwa_vcs_fluxcal import MWA_LOCATION, SI_TO_JY
-
-"""
-The flux density can be estimated using the radiometer equation:
-
-              f_c T_sys
-S = (S/N) x ---------------
-            G sqrt(n dv dt)
-
-where
-
-S/N   = signal-to-noise ratio in pulse profile
-f_c   = coherency factor
-T_sys = system temperature
-G     = system gain
-n     = number of instrumental polarisations summed (assume 2)
-dv    = observing bandwidth
-dt    = integration time
-
-The system temperature consists of contributions from the antennas (T_ant),
-the receiver (T_rec), and the environment (T_0 ~ 290 K):
-
-T_sys = eta T_ant + (1 - eta) T_0 + T_rec
-
-where eta is the radiation efficiency of the array. The antenna temperature is
-an integral of the antenna pattern and the sky temperature (T_sky) over the
-solid angle of the beam and the frequency band.
-
-To calculate G, we must first calculate the effective collecting area A_e:
-
-            4 pi lambda^2
-A_e = eta * -------------
-               Omega_A
-
-where Omega_A is the beam solid angle -- the integral of the array factor
-power pattern over the sky.
-
-The gain is related to the effective area and Boltzmann's constant k_B as:
-
-     A_e
-G = -----
-    2 k_B
-
-For further details, see Meyers et al. (2017):
-https://ui.adsabs.harvard.edu/abs/2017ApJ...851...20M/abstract
-"""
 
 
 @click.command()
@@ -105,7 +64,7 @@ def main(
     logger = mwa_vcs_fluxcal.get_logger(log_level=log_level_dict[log_level])
 
     # If level is below INFO, disable progress bar as it will be broken up by
-    # verbose log statements. If it above INFO, also disable it.
+    # verbose log statements. If it is above INFO, also disable it.
     disable_tqdm = True
     if logger.level is logging.INFO:
         disable_tqdm = False
@@ -349,7 +308,7 @@ def main(
                 az_fine,
             )
 
-            # Calculate the array factor power
+            # Calculate the array factor power (Eq 11 of M+17)
             afp = mwa_vcs_fluxcal.calcArrayFactorPower(look_psi, target_psi, logger=logger)
 
             tsky = np.empty_like(afp)
@@ -367,11 +326,11 @@ def main(
                     pix_coords, eval_freqs[ii].to(u.MHz).value, logger=logger
                 )
 
-                # Calculate the tied-array beam power
+                # Calculate the tied-array beam power (Eq 12 of M+17)
                 # afp has dimensions (ntime,npixels) and pbp has dimensions (npixels,)
                 tabp[kk, ...] = afp[kk, ...] * pbp
 
-            # Compute the integral
+            # Compute the integrals (Eq 13 of M+17)
             # integrands have dimensions (ntime,npixels)
             # integrals have dimensions (ntime,)
             pixel_area = fine_grid_res.radian * fine_grid_res.radian * np.sin(za_fine)
@@ -382,19 +341,19 @@ def main(
             integral_bot += np.sum(integrand_bot, axis=1)
             Omega_A += np.sum(integrand_Omega_A, axis=1)
 
-        # Antenna temperature
+        # Antenna temperature (Eq 13 of M+17)
         T_ant = integral_top / integral_bot * u.K
 
-        # System temperature
+        # System temperature (Eq 1 of M+17)
         T_sys = eta * T_ant + (1 - eta) * t0 + T_rec[ii]
 
-        # Beam solid angle
+        # Beam solid angle (Eq 14 of M+17)
         Omega_A = 4 * np.pi * Omega_A * u.sr
 
-        # Effective area
+        # Effective area (Eq 15 of M+17)
         A_eff = eta * (4 * np.pi * u.sr * c**2 / (eval_freqs[ii].to(u.s**-1) ** 2 * Omega_A))
 
-        # Gain
+        # Gain (Eq 16 of M+17)
         G = A_eff / (2 * k_B) * SI_TO_JY
 
         # SEFD

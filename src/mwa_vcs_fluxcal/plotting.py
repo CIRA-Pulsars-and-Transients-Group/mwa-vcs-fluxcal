@@ -238,14 +238,38 @@ def plot_primary_beam(
 
 
 def plot_3d_result(
-    t: np.ndarray,
-    f: np.ndarray,
-    d: np.ndarray,
+    t: np.ndarray[float],
+    f: np.ndarray[float],
+    d: np.ndarray[float],
     zlabel: str,
     num_points: int = 20,
     savename: str = "results.png",
-    logger: logging.Logger = None,
+    logger: logging.Logger | None = None,
 ) -> RegularGridInterpolator:
+    """Make a 3D plot of the (t,f) parameter space for data d.
+
+    Parameters
+    ----------
+    t : `np.ndarray[float]`
+        The points defining the regular grid in dimension t.
+    f : `np.ndarray[float]`
+        The points defining the regular grid in dimension f.
+    d : `np.ndarray[float]`
+        The data on the regular grid in 2 dimensions.
+    zlabel : `str`
+        The z-axis label associated with the data.
+    num_points : `int`, optional
+        The number of points to interpolate the data to in each dimension. Default: 20.
+    savename : `str`, optional
+        The filename to save the plot as. Default: "results.png".
+    logger : `logging.Logger`, optional
+        A logger to use. Default: `None`.
+
+    Returns
+    -------
+    interp : `RegularGridInterpolator`
+        A function defining the interpolated 2D surface.
+    """
     if logger is None:
         logger = mwa_vcs_fluxcal.get_logger()
 

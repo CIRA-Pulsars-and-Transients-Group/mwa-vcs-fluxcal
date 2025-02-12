@@ -82,6 +82,7 @@ https://ui.adsabs.harvard.edu/abs/2017ApJ...851...20M/abstract
 @click.option("--plot_profile", is_flag=True, help="Plot the pulse profile.")
 @click.option("--plot_trec", is_flag=True, help="Plot the receiver temperature.")
 @click.option("--plot_pb", is_flag=True, help="Plot the primary beam.")
+@click.option("--plot_sefd", is_flag=True, help="Plot the SEFD results in 3D (time,freq,SEFD).")
 def main(
     archive: str,
     log_level: str,
@@ -94,6 +95,7 @@ def main(
     plot_profile: bool,
     plot_trec: bool,
     plot_pb: bool,
+    plot_sefd: bool,
 ) -> None:
     log_level_dict = mwa_vcs_fluxcal.get_log_levels()
     logger = mwa_vcs_fluxcal.get_logger(log_level=log_level_dict[log_level])
@@ -198,6 +200,12 @@ def main(
         SEFD=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.Jy),
     )
 
+    # Assumptions
+    fc = 0.7
+    eta = 0.9
+    npol = 2
+    t0 = 290 * u.K
+
     # Calculate the beam width
     max_baseline, _, _ = mwa_vcs_fluxcal.find_max_baseline(context)
     max_baseline *= u.m
@@ -239,14 +247,10 @@ def main(
         mwa_vcs_fluxcal.plot_trcvr_vc_freq(T_rec_spline, fctr, df, logger=logger)
     T_rec = T_rec_spline(eval_freqs.to(u.MHz).value) * u.K
 
-    # Hardcode these for now
-    eta = 0.9
-    t0 = 290 * u.K
-
     # For each evaluation frequency we will calculate which parts of the sky are
     # within the primary beam and only integrate the pixels in those regions
     for ii in range(nfreq):
-        logger.info(f"Computing frequency {ii}: {eval_freqs[ii].to_string()}")
+        logger.info(f"Computing frequency {ii}: {eval_freqs[ii].to_string(precision=2)}")
 
         # Define a "look" vector pointing towards the pulsar
         look_psi = mwa_vcs_fluxcal.calcGeometricDelays(
@@ -376,7 +380,7 @@ def main(
         G = A_eff / (2 * k_B) * SI_TO_JY
 
         # SEFD
-        sefd = T_sys / G
+        sefd = fc * T_sys / G
 
         # Save the results
         results["T_ant"][:, ii] = T_ant
@@ -387,15 +391,23 @@ def main(
         results["SEFD"][:, ii] = sefd
 
     for key in results:
-        logger.info(f"{key} = \n{results[key].to_string()}")
+        logger.debug(f"{key} = \n{results[key].to_string()}")
 
-    # TODO: fit polynomials in time/freq to get mean T_sys and G
+    if plot_sefd and nfreq >= 4 and ntime >= 4:
+        mwa_vcs_fluxcal.plot_3d_result(
+            eval_offsets.to(u.s).value,
+            eval_freqs.to(u.MHz).value,
+            results["SEFD"].value,
+            zlabel="SEFD [Jy]",
+            logger=logger,
+        )
+
     # Radiometer equation
-    # fc = 0.7
-    # npol = 2
-    # Smean = snr * fc * tsys / (gain * np.sqrt(npol * df * dt))
-    # Smean = Smean.to(u.Jy)
-    # logger.info(f"S_mean = {Smean.to_string()}")
+    sefd_mean = np.mean(results["SEFD"])
+    Smean = snr * sefd_mean / np.sqrt(npol * df * dt)
+    Smean = Smean.to(u.Jy)
+    logger.info(f"SEFD = {sefd_mean.to_string()}")
+    logger.info(f"Mean flux density = {Smean.to(u.mJy).to_string()}")
 
 
 if __name__ == "__main__":

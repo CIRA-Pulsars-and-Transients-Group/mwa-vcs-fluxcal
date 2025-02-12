@@ -7,7 +7,7 @@ import logging
 import cmasher as cmr
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import CubicSpline, RegularGridInterpolator
 
 import mwa_vcs_fluxcal
 
@@ -15,6 +15,7 @@ __all__ = [
     "plot_pulse_profile",
     "plot_trcvr_vc_freq",
     "plot_primary_beam",
+    "plot_3d_result",
 ]
 
 plt.rcParams["mathtext.fontset"] = "dejavuserif"
@@ -234,3 +235,37 @@ def plot_primary_beam(
     fig.savefig(savename)
 
     plt.close()
+
+
+def plot_3d_result(
+    t: np.ndarray,
+    f: np.ndarray,
+    d: np.ndarray,
+    zlabel: str,
+    num_points: int = 20,
+    savename: str = "results.png",
+    logger: logging.Logger = None,
+) -> RegularGridInterpolator:
+    if logger is None:
+        logger = mwa_vcs_fluxcal.get_logger()
+
+    tg, fg = np.meshgrid(t, f, indexing="ij")
+    interp = RegularGridInterpolator((t, f), d, method="cubic")
+    tt = np.linspace(np.min(t), np.max(t), num_points)
+    ff = np.linspace(np.min(f), np.max(f), num_points)
+    ttg, ffg = np.meshgrid(tt, ff, indexing="ij")
+    ddg = interp((ttg, ffg))
+
+    fig, ax = plt.subplots(dpi=300, subplot_kw={"projection": "3d"})
+    ax.scatter(tg.ravel(), fg.ravel(), d.ravel(), s=20, c="k")
+    ax.plot_wireframe(ttg, ffg, ddg, alpha=0.4)
+    ax.set(
+        xlabel="Time [s]",
+        ylabel="Frequency [MHz]",
+        zlabel=zlabel,
+    )
+    logger.info(f"Saving plot file: {savename}")
+    fig.savefig(savename)
+    plt.close()
+
+    return interp

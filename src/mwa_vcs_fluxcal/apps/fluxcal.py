@@ -2,6 +2,7 @@
 # Licensed under the Academic Free License version 3.0 #
 ########################################################
 
+import logging
 import astropy.units as u
 import click
 import mwalib
@@ -10,6 +11,7 @@ import psrchive
 from astropy.constants import c, k_B
 from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.time import Time
+from tqdm import tqdm
 
 import mwa_vcs_fluxcal
 from mwa_vcs_fluxcal import MWA_LOCATION, SI_TO_JY
@@ -99,6 +101,12 @@ def main(
 ) -> None:
     log_level_dict = mwa_vcs_fluxcal.get_log_levels()
     logger = mwa_vcs_fluxcal.get_logger(log_level=log_level_dict[log_level])
+
+    # If level is below INFO, disable progress bar as it will be broken up by
+    # verbose log statements. If it above INFO, also disable it.
+    disable_tqdm = True
+    if logger.level is logging.INFO:
+        disable_tqdm = False
 
     logger.info(f"Loading archive: {archive}")
     try:
@@ -301,13 +309,13 @@ def main(
         az_jobs = np.array_split(az_blocks, num_jobs)
         za_jobs = np.array_split(za_blocks, num_jobs)
 
-        # Loop through subboxes and integrate
+        # Arrays to store integrals for each time step
         integral_top = np.zeros(ntime, dtype=np.float64)
         integral_bot = np.zeros(ntime, dtype=np.float64)
         Omega_A = np.zeros(ntime, dtype=np.float64)
-        for jj in range(num_jobs):
-            logger.info(f"Computing job {jj}")
 
+        # Make sure there are no INFO-level logs in this loop
+        for jj in tqdm(range(num_jobs), unit="job", disable=disable_tqdm):
             az_job = az_jobs[jj]
             za_job = za_jobs[jj]
 

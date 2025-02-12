@@ -210,7 +210,7 @@ def main(
 
     # Assumptions
     fc = 0.7
-    eta = 0.9
+    eta = 1
     npol = 2
     t0 = 290 * u.K
 

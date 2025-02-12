@@ -379,7 +379,7 @@ def main(
             logger=logger,
         )
 
-    # Radiometer equation
+    # Radiometer equation (Eq 3 of M+17)
     sefd_mean = np.mean(results["SEFD"])
     Smean = snr * sefd_mean / np.sqrt(npol * df * dt)
     Smean = Smean.to(u.Jy)

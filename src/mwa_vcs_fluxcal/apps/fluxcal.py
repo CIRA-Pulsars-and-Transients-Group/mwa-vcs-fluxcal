@@ -316,6 +316,8 @@ def main(
 
         # Make sure there are no INFO-level logs in this loop
         for jj in tqdm(range(num_jobs), unit="job", disable=disable_tqdm):
+            logger.debug(f"Computing job {jj}")
+
             az_job = az_jobs[jj]
             za_job = za_jobs[jj]
 

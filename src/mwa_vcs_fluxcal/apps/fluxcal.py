@@ -244,7 +244,9 @@ def main(
     # Receiver temperature
     T_rec_spline = mwa_vcs_fluxcal.splineRecieverTemp()
     if plot_trec:
-        mwa_vcs_fluxcal.plot_trcvr_vc_freq(T_rec_spline, fctr, df, logger=logger)
+        mwa_vcs_fluxcal.plot_trcvr_vc_freq(
+            T_rec_spline, fctr.to(u.MHz).value, df.to(u.MHz).value, logger=logger
+        )
     T_rec = T_rec_spline(eval_freqs.to(u.MHz).value) * u.K
 
     # For each evaluation frequency we will calculate which parts of the sky are

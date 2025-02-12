@@ -217,16 +217,6 @@ def main(
     altaz_frame = AltAz(location=MWA_LOCATION, obstime=eval_times)
     pulsar_position_altaz = pulsar_position.transform_to(altaz_frame)
 
-    # Define a "look" vector pointing towards the pulsar with dimensions (nfreq,ntime,nant)
-    look_psi = np.empty((nfreq, ntime, tile_positions.shape[0]), dtype=np.complex128)
-    for ii in range(nfreq):
-        look_psi[ii, ...] = mwa_vcs_fluxcal.calcGeometricDelays(
-            tile_positions,
-            eval_freqs[ii].to(u.Hz).value,
-            pulsar_position_altaz.alt.rad,
-            pulsar_position_altaz.az.rad,
-        ).T
-
     # Create a coarse meshgrid so that we can estimate the sky area with
     # significant power in the primary beam
     az_box_coarse = np.arange(0, 2 * np.pi, coarse_grid_res.radian)
@@ -257,6 +247,14 @@ def main(
     # within the primary beam and only integrate the pixels in those regions
     for ii in range(nfreq):
         logger.info(f"Computing frequency {ii}: {eval_freqs[ii].to_string()}")
+
+        # Define a "look" vector pointing towards the pulsar
+        look_psi = mwa_vcs_fluxcal.calcGeometricDelays(
+            tile_positions,
+            eval_freqs[ii].to(u.Hz).value,
+            pulsar_position_altaz.alt.rad,
+            pulsar_position_altaz.az.rad,
+        ).T
 
         # Compute the primary beam power
         grid_pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
@@ -330,7 +328,7 @@ def main(
             )
 
             # Calculate the array factor power
-            afp = mwa_vcs_fluxcal.calcArrayFactorPower(look_psi[ii], target_psi, logger=logger)
+            afp = mwa_vcs_fluxcal.calcArrayFactorPower(look_psi, target_psi, logger=logger)
 
             tsky = np.empty_like(afp)
             tabp = np.empty_like(afp)

@@ -367,7 +367,7 @@ def main(
         T_sys = eta * T_ant + (1 - eta) * t0 + T_rec[ii]
 
         # Beam solid angle
-        Omega_A = Omega_A * u.radian**2
+        Omega_A = 4 * np.pi * Omega_A * u.radian**2
 
         # Effective area
         A_eff = eta * (4 * np.pi * u.radian**2 * c**2 / (eval_freqs[ii].to(u.s**-1) ** 2 * Omega_A))

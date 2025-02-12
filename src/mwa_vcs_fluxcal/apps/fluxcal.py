@@ -3,11 +3,13 @@
 ########################################################
 
 import logging
+
 import astropy.units as u
 import click
 import mwalib
 import numpy as np
 import psrchive
+import toml
 from astropy.constants import c, k_B
 from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.time import Time
@@ -198,8 +200,11 @@ def main(
     logger.info(f"Evaluating at offsets: {eval_offsets}")
     logger.info(f"Evaluating at times: {eval_times}")
 
-    # This dictionary will store the results for all time/freq steps
+    # This dictionary will store the results to be written out
     results = dict(
+        t=eval_offsets,
+        f=eval_freqs,
+        T_rec=u.Quantity(np.empty((nfreq), dtype=np.float64), u.K),
         T_ant=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.K),
         T_sys=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.K),
         Omega_A=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.sr),
@@ -256,6 +261,7 @@ def main(
             T_rec_spline, fctr.to(u.MHz).value, df.to(u.MHz).value, logger=logger
         )
     T_rec = T_rec_spline(eval_freqs.to(u.MHz).value) * u.K
+    results["T_rec"] = T_rec
 
     # For each evaluation frequency we will calculate which parts of the sky are
     # within the primary beam and only integrate the pixels in those regions
@@ -420,6 +426,15 @@ def main(
     Smean = Smean.to(u.Jy)
     logger.info(f"SEFD = {sefd_mean.to_string()}")
     logger.info(f"Mean flux density = {Smean.to(u.mJy).to_string()}")
+    results["SEFD_mean"] = sefd_mean
+    results["S_mean"] = Smean
+
+    # Write results
+    results_vals = dict()
+    for key in results:
+        results_vals[key] = results[key].value
+    with open("results.toml", "w") as f:
+        toml.dump(results_vals, f, encoder=toml.TomlNumpyEncoder())
 
 
 if __name__ == "__main__":

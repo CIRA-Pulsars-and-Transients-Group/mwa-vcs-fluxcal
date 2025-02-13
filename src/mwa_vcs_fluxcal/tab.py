@@ -266,7 +266,7 @@ def calcArrayFactorPower(
     # The array factor power is normalised to the number of elements
     # included in the sum (i.e., length of the `look_w` vector).
     logger.debug("Averaging over array and converting to power")
-    afp = (np.absolute(sum_over_antennas) / look_w.size) ** 2
+    afp = (np.absolute(sum_over_antennas) / look_w.shape[1]) ** 2
 
     return afp
 

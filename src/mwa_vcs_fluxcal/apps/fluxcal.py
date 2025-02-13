@@ -159,31 +159,12 @@ def main(
     logger.info(f"Evaluating at offsets: {eval_offsets}")
     logger.info(f"Evaluating at times: {eval_times}")
 
-    # This dictionary will store the results to be written out
-    results = dict(
-        t=eval_offsets,
-        f=eval_freqs,
-        T_rec=u.Quantity(np.empty((nfreq), dtype=np.float64), u.K),
-        T_ant=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.K),
-        T_sys=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.K),
-        Omega_A=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.sr),
-        A_eff=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.m**2),
-        G=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.K * u.Jy**-1),
-        SEFD=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.Jy),
-    )
-
-    # Assumptions
-    fc = 0.7
-    eta = 1
-    npol = 2
-    t0 = 290 * u.K
-
     # Calculate the beam width
     max_baseline, _, _ = mwa_vcs_fluxcal.find_max_baseline(context)
     max_baseline *= u.m
     width = ((c / fctr.to(1 / u.s)) / max_baseline) * u.rad
     logger.info(f"Maximum baseline: {max_baseline.to_string()}")
-    logger.info(f"Beam width ~ lambda/D: {width.to(u.arcminute).to_string()}")
+    logger.info(f"Beam width ~ lambda/D: {width.to(u.arcmin).to_string()}")
 
     # Define the grid resolutions
     fine_grid_res = Angle(fine_res, u.arcmin)
@@ -196,6 +177,33 @@ def main(
     pulsar_position = SkyCoord(ra_hms, dec_dms, frame="icrs", unit=("hourangle", "deg"))
     altaz_frame = AltAz(location=MWA_LOCATION, obstime=eval_times)
     pulsar_position_altaz = pulsar_position.transform_to(altaz_frame)
+
+    # This dictionary will store the results to be written out
+    results = dict(
+        integral_resolution=fine_grid_res.to(u.arcmin),
+        tab_width=width.to(u.arcmin),
+        t=eval_offsets.to(u.s),
+        f=eval_freqs.to(u.MHz),
+        pulsar_az=pulsar_position_altaz.az.to(u.deg),
+        pulsar_za=pulsar_position_altaz.alt.to(u.deg),
+        T_rec=u.Quantity(np.empty((nfreq), dtype=np.float64), u.K),
+        T_ant=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.K),
+        T_sys=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.K),
+        Omega_A=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.sr),
+        A_eff=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.m**2),
+        G=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.K * u.Jy**-1),
+        SEFD=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.Jy),
+        SEFD_mean=u.Quantity(np.float64(0.0), u.Jy),
+        snr=u.Quantity(np.float64(snr), u.dimensionless_unscaled),
+        noise_rms=u.Quantity(np.float64(0.0), u.Jy),
+        S_mean=u.Quantity(np.float64(0.0), u.Jy),
+    )
+
+    # Assumptions
+    fc = 0.7
+    eta = 1
+    npol = 2
+    t0 = 290 * u.K
 
     # Create a coarse meshgrid so that we can estimate the sky area with
     # significant power in the primary beam
@@ -367,9 +375,6 @@ def main(
         results["G"][:, ii] = G
         results["SEFD"][:, ii] = sefd
 
-    for key in results:
-        logger.debug(f"{key} = \n{results[key].to_string()}")
-
     if plot_sefd and nfreq >= 4 and ntime >= 4:
         mwa_vcs_fluxcal.plot_3d_result(
             eval_offsets.to(u.s).value,
@@ -381,17 +386,19 @@ def main(
 
     # Radiometer equation (Eq 3 of M+17)
     sefd_mean = np.mean(results["SEFD"])
-    Smean = snr * sefd_mean / np.sqrt(npol * df * dt)
+    radiometer_noise = sefd_mean / np.sqrt(npol * df.to(1 / u.s) * dt)
+    Smean = snr * radiometer_noise
     Smean = Smean.to(u.Jy)
     logger.info(f"SEFD = {sefd_mean.to_string()}")
     logger.info(f"Mean flux density = {Smean.to(u.mJy).to_string()}")
     results["SEFD_mean"] = sefd_mean
+    results["noise_rms"] = radiometer_noise
     results["S_mean"] = Smean
 
     # Write results
     results_vals = dict()
     for key in results:
-        results_vals[key] = results[key].value
+        results_vals[key] = [results[key].value, results[key].unit.to_string()]
     with open("results.toml", "w") as f:
         toml.dump(results_vals, f, encoder=toml.TomlNumpyEncoder())
 

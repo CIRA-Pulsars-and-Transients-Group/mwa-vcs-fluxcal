@@ -28,8 +28,8 @@ plt.rcParams["font.size"] = 12
 def plot_pulse_profile(
     profile: np.ndarray,
     offpulse_win: np.ndarray,
-    offpulse_sigma: float,
-    snr: float,
+    offpulse_std: float,
+    title: str,
     savename: str = "pulse_profile.png",
     logger: logging.Logger | None = None,
 ) -> None:
@@ -42,10 +42,10 @@ def plot_pulse_profile(
         The pulse profile amplitudes.
     offpulse_win : `np.ndarray`
         The bin indices of the offpulse region.
-    offpulse_sigma : `float`
+    offpulse_std : `float`
         The standard deviation of the offpulse noise.
-    snr : `float`
-        The signal/noise ratio.
+    title : `str`, optional
+        A title for the plot. Default: None.
     savename : `str`, optional
         The filename to save the plot as. Default: "pulse_profile.png".
     logger : `logging.Logger`, optional
@@ -96,12 +96,12 @@ def plot_pulse_profile(
     ax.axhline(0, linestyle="--", linewidth=lw, color="k")
     ax.fill_between(
         xlims,
-        -offpulse_sigma,
-        offpulse_sigma,
+        -offpulse_std,
+        offpulse_std,
         color="k",
         alpha=0.2,
         zorder=0,
-        label=f"$\sigma={offpulse_sigma:.6f}$",
+        label=f"$\sigma={offpulse_std:.6f}$",
     )
 
     ax.set_xlim(xlims)
@@ -110,7 +110,8 @@ def plot_pulse_profile(
     ax.tick_params(axis="both", which="both", right=True, top=True, direction="in")
     ax.set_xlabel("Pulse Phase")
     ax.set_ylabel("Flux Density [arb. units]")
-    ax.set_title(f"S/N = {snr:.2f}")
+    if title is not None:
+        ax.set_title(title)
 
     ax.legend()
 

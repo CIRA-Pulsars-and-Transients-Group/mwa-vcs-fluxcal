@@ -109,16 +109,27 @@ def main(
         mask[bin_idx] = True
 
     # Compute the signal/noise ratio
-    offpulse_sigma = np.std(profile[mask])
-    snr = np.max(profile) / offpulse_sigma
-    logger.info(f"S/N = {snr}")
+    offpulse = profile[mask]
+    offpulse_mean = np.mean(offpulse)
+    offpulse_std = np.std(offpulse)
+
+    # Correct baseline
+    profile -= offpulse_mean
+
+    # Measure the signal-to-noise ratio
+    snr_peak = np.max(profile) / offpulse_std
+    snr_mean = np.mean(profile) / offpulse_std
+    logger.info(f"S/N (peak) = {snr_peak}")
+    logger.info(f"S/N (mean) = {snr_mean}")
 
     if plot_profile:
         mwa_vcs_fluxcal.plot_pulse_profile(
             profile,
             offpulse_win,
-            offpulse_sigma,
-            snr,
+            offpulse_std,
+            title="S/N$_\mathrm{{peak}} = {:.2f}$, S/N$_\mathrm{{mean}} = {:.2f}$".format(
+                snr_peak, snr_mean
+            ),
             logger=logger,
         )
 
@@ -194,8 +205,10 @@ def main(
         G=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.K * u.Jy**-1),
         SEFD=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.Jy),
         SEFD_mean=u.Quantity(np.float64(0.0), u.Jy),
-        snr=u.Quantity(np.float64(snr), u.dimensionless_unscaled),
+        SNR_peak=u.Quantity(np.float64(snr_peak), u.dimensionless_unscaled),
+        SNR_mean=u.Quantity(np.float64(snr_mean), u.dimensionless_unscaled),
         noise_rms=u.Quantity(np.float64(0.0), u.Jy),
+        S_peak=u.Quantity(np.float64(0.0), u.Jy),
         S_mean=u.Quantity(np.float64(0.0), u.Jy),
     )
 
@@ -387,13 +400,15 @@ def main(
     # Radiometer equation (Eq 3 of M+17)
     sefd_mean = np.mean(results["SEFD"])
     radiometer_noise = sefd_mean / np.sqrt(npol * df.to(1 / u.s) * dt)
-    Smean = snr * radiometer_noise
-    Smean = Smean.to(u.Jy)
-    logger.info(f"SEFD = {sefd_mean.to_string()}")
-    logger.info(f"Mean flux density = {Smean.to(u.mJy).to_string()}")
+    S_peak = snr_peak * radiometer_noise
+    S_mean = snr_mean * radiometer_noise
+    logger.info(f"SEFD = {sefd_mean.to(u.Jy).to_string()}")
+    logger.info(f"Peak flux density = {S_peak.to(u.mJy).to_string()}")
+    logger.info(f"Mean flux density = {S_mean.to(u.mJy).to_string()}")
     results["SEFD_mean"] = sefd_mean
     results["noise_rms"] = radiometer_noise
-    results["S_mean"] = Smean
+    results["S_peak"] = S_peak
+    results["S_mean"] = S_mean
 
     # Write results
     results_vals = dict()

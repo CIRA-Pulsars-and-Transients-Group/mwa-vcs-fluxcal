@@ -17,6 +17,7 @@ import toml
 from astropy.constants import c, k_B
 from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.time import Time
+from scipy import integrate
 from tqdm import tqdm
 
 import mwa_vcs_fluxcal
@@ -118,7 +119,7 @@ def main(
 
     # Measure the signal-to-noise ratio
     snr_peak = np.max(profile) / offpulse_std
-    snr_mean = np.mean(profile) / offpulse_std
+    snr_mean = integrate.trapezoid(profile, dx=1 / archive.get_nbin()) / offpulse_std
     logger.info(f"S/N (peak) = {snr_peak}")
     logger.info(f"S/N (mean) = {snr_mean}")
 

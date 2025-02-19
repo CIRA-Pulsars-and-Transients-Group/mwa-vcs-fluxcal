@@ -6,6 +6,7 @@ import logging
 
 import numpy as np
 import psrchive
+from scipy import integrate
 
 import mwa_vcs_fluxcal
 
@@ -68,7 +69,7 @@ def get_offpulse_region(
     integral = np.zeros_like(data)
     for i in range(nbins):
         win = np.arange(i - windowsize // 2, i + windowsize // 2) % nbins
-        integral[i] = np.trapz(data[win])
+        integral[i] = integrate.trapezoid(data[win])
 
     minidx = np.argmin(integral)
     offpulse_win = np.arange(minidx - windowsize // 2, minidx + windowsize // 2) % nbins

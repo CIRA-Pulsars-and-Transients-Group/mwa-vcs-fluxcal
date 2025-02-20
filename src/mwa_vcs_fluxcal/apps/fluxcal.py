@@ -343,28 +343,31 @@ def main(
                 )
 
                 # Calculate the tied-array beam power (Eq 12 of M+17)
-                # afp has dimensions (ntime,npixels) and pbp has dimensions (npixels,)
+                # afp has shape (ntime,npixels) and pbp has shape (npixels,)
                 tabp[kk, ...] = afp[kk, ...] * pbp
 
-            # Compute the integrals (Eq 13 of M+17)
-            # integrands have dimensions (ntime,npixels)
+            # Compute the integrals (Eqs 13 and 14 of M+17)
+            # differential has shape (npixels,) and will be broadcast along axis=1
+            # assuming that npixels > ntime
             pixel_area = fine_grid_res.radian**2 * np.sin(za_fine)
+            # integrands have shape (ntime,npixels)
             integrand_B_T = tabp * tsky * pixel_area
             integrand_B = tabp * pixel_area
             integrand_afp = afp * pixel_area
-            # integrals have dimensions (ntime,)
+            # integrals have shape (ntime,)
             integral_B_T += np.sum(integrand_B_T, axis=1)
             integral_B += np.sum(integrand_B, axis=1)
             integral_afp += np.sum(integrand_afp, axis=1)
 
         # Antenna temperature (Eq 13 of M+17)
+        # The integrals have units of sr that cancel out
         T_ant = integral_B_T / integral_B * u.K
 
         # System temperature (Eq 1 of M+17)
         T_sys = eta * T_ant + (1 - eta) * t0 + T_rec[ii]
 
         # Beam solid angle (Eq 14 of M+17)
-        Omega_A = 4 * np.pi * integral_afp * u.sr
+        Omega_A = integral_afp * u.sr
 
         # Effective area (Eq 15 of M+17)
         A_eff = eta * 4 * np.pi * u.sr * (c / eval_freqs[ii].to(u.s**-1)) ** 2 / Omega_A

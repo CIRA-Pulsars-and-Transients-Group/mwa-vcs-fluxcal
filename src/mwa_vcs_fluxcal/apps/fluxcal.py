@@ -291,9 +291,9 @@ def main(
         za_jobs = np.array_split(za_blocks, num_jobs)
 
         # Arrays to store integrals for each time step
-        integral_top = np.zeros(ntime, dtype=np.float64)
-        integral_bot = np.zeros(ntime, dtype=np.float64)
-        Omega_A = np.zeros(ntime, dtype=np.float64)
+        integral_B_T = np.zeros(ntime, dtype=np.float64)
+        integral_B = np.zeros(ntime, dtype=np.float64)
+        integral_afp = np.zeros(ntime, dtype=np.float64)
 
         # Make sure there are no INFO-level logs in this loop
         for jj in tqdm(range(num_jobs), unit="job", disable=disable_tqdm):
@@ -348,23 +348,23 @@ def main(
 
             # Compute the integrals (Eq 13 of M+17)
             # integrands have dimensions (ntime,npixels)
-            # integrals have dimensions (ntime,)
             pixel_area = fine_grid_res.radian**2 * np.sin(za_fine)
-            integrand_top = tabp * tsky * pixel_area
-            integrand_bot = tabp * pixel_area
-            integrand_Omega_A = afp * pixel_area
-            integral_top += np.sum(integrand_top, axis=1)
-            integral_bot += np.sum(integrand_bot, axis=1)
-            Omega_A += np.sum(integrand_Omega_A, axis=1)
+            integrand_B_T = tabp * tsky * pixel_area
+            integrand_B = tabp * pixel_area
+            integrand_afp = afp * pixel_area
+            # integrals have dimensions (ntime,)
+            integral_B_T += np.sum(integrand_B_T, axis=1)
+            integral_B += np.sum(integrand_B, axis=1)
+            integral_afp += np.sum(integrand_afp, axis=1)
 
         # Antenna temperature (Eq 13 of M+17)
-        T_ant = integral_top / integral_bot * u.K
+        T_ant = integral_B_T / integral_B * u.K
 
         # System temperature (Eq 1 of M+17)
         T_sys = eta * T_ant + (1 - eta) * t0 + T_rec[ii]
 
         # Beam solid angle (Eq 14 of M+17)
-        Omega_A = 4 * np.pi * Omega_A * u.sr
+        Omega_A = 4 * np.pi * integral_afp * u.sr
 
         # Effective area (Eq 15 of M+17)
         A_eff = eta * 4 * np.pi * u.sr * (c / eval_freqs[ii].to(u.s**-1)) ** 2 / Omega_A

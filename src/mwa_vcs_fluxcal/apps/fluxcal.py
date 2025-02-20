@@ -41,6 +41,9 @@ from mwa_vcs_fluxcal import MWA_LOCATION, SI_TO_JY
 @click.option(
     "--coarse_res", type=float, default=30, help="The resolution of the primary beam map, in arcmin"
 )
+@click.option(
+    "--min_pbp", type=float, default=0.001, help="Only integrate above this primary beam power."
+)
 @click.option("--nfreq", type=int, default=1, help="The number of frequency steps to evaluate.")
 @click.option("--ntime", type=int, default=1, help="The number of time steps to evaluate.")
 @click.option("--plot_profile", is_flag=True, help="Plot the pulse profile.")
@@ -54,6 +57,7 @@ def main(
     windowsize: int,
     fine_res: float,
     coarse_res: float,
+    min_pbp: float,
     nfreq: int,
     ntime: int,
     plot_profile: bool,
@@ -262,6 +266,7 @@ def main(
             za_grid_coarse,
             grid_pbp,
             coarse_grid_res.radian,
+            plevel=min_pbp,
             plot=plot_pb,
             pulsar_coords=pulsar_position_altaz,
             savename=f"primary_beam_masked_{eval_freqs[ii].to(u.MHz).value:.0f}MHz.png",

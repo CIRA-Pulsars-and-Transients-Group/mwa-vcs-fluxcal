@@ -265,17 +265,23 @@ def main(
         )["I"].reshape(az_grid_coarse.shape)
 
         # Select the coarse pixels covering the primary beam
-        az_grid_coarse_inbeam, za_grid_coarse_inbeam, _ = mwa_vcs_fluxcal.tesellate_primary_beam(
-            az_grid_coarse,
-            za_grid_coarse,
-            grid_pbp,
-            coarse_grid_res.radian,
-            plevel=min_pbp,
-            plot=plot_pb,
-            pulsar_coords=pulsar_position_altaz,
-            savename=f"primary_beam_masked_{eval_freqs[ii].to(u.MHz).value:.0f}MHz.png",
-            logger=logger,
-        )
+        if min_pbp > 0.0:
+            az_grid_coarse_inbeam, za_grid_coarse_inbeam, _ = (
+                mwa_vcs_fluxcal.tesellate_primary_beam(
+                    az_grid_coarse,
+                    za_grid_coarse,
+                    grid_pbp,
+                    coarse_grid_res.radian,
+                    plevel=min_pbp,
+                    plot=plot_pb,
+                    pulsar_coords=pulsar_position_altaz,
+                    savename=f"primary_beam_masked_{eval_freqs[ii].to(u.MHz).value:.0f}MHz.png",
+                    logger=logger,
+                )
+            )
+        else:
+            az_grid_coarse_inbeam = az_grid_coarse
+            za_grid_coarse_inbeam = za_grid_coarse
 
         # Flatten the masked coarse meshgrid. Since the coarse pixels will be
         # up-sampled later, we'll use the shorthand 'blocks' to mean the coarse

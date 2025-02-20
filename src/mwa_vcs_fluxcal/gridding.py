@@ -117,9 +117,9 @@ def tesellate_primary_beam(
                 ms=3,
                 mfc="none",
             )
-        cbar = plt.colorbar(im, pad=0.13, ticks=[-3, -2, -1, 0])
-        cbar.ax.set_ylim([-3, 0])
-        cbar.ax.set_yticklabels(["0.1", "1", "10", "100"])
+        cbar = plt.colorbar(im, pad=0.13, ticks=[-4, -3, -2, -1, 0])
+        cbar.ax.set_ylim([np.log10(plevel), 0])
+        cbar.ax.set_yticklabels(["0.01", "0.1", "1", "10", "100"])
         cbar.ax.set_ylabel("Zenith-normalised beam power (\%)", labelpad=10)
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)

@@ -354,13 +354,13 @@ def main(
                     location=MWA_LOCATION,
                     obstime=eval_times[kk],
                 )
-                tsky[kk, ...] = mwa_vcs_fluxcal.getSkyTempAtCoords(
+                tsky[kk, :] = mwa_vcs_fluxcal.getSkyTempAtCoords(
                     pix_coords, eval_freqs[ii].to(u.MHz).value, logger=logger
                 )
 
                 # Calculate the tied-array beam power (Eq 12 of M+17)
                 # afp has shape (ntime,npixels) and pbp has shape (npixels,)
-                tabp[kk, ...] = afp[kk, ...] * pbp
+                tabp[kk, :] = afp[kk, :] * pbp
             logger.debug(f"Computing T_sky and TAB took {pc() - bench_t0} s")
 
             # Compute the integrals (Eqs 13 and 14 of M+17)

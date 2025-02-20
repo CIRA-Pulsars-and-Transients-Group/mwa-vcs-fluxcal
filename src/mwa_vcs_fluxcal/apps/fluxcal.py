@@ -7,6 +7,7 @@
 # https://ui.adsabs.harvard.edu/abs/2017ApJ...851...20M/abstract
 
 import logging
+from time import perf_counter as pc
 
 import astropy.units as u
 import click
@@ -182,6 +183,9 @@ def main(
     coarse_grid_res = Angle(coarse_res, u.arcmin)
     logger.info(f"Fine grid resolution = {fine_grid_res.to_string()}")
     logger.info(f"Coarse grid resolution = {coarse_grid_res.to_string()}")
+    if not np.isclose((coarse_grid_res.arcmin / fine_grid_res.arcmin) % 1, 0.0, rtol=1e-5):
+        logger.critical("Coarse grid resolution not divisible by fine grid resolution.")
+        exit(1)
 
     # Get the sky coordinates of the pulsar
     ra_hms, dec_dms = archive.get_coordinates().getHMSDMS().split(" ")
@@ -313,6 +317,7 @@ def main(
             alt_fine = np.pi / 2 - za_fine
 
             # Calculate the primary beam power
+            bench_t0 = pc()
             pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
                 context,
                 eval_freqs[ii].to(u.Hz).value,
@@ -320,18 +325,24 @@ def main(
                 az_fine,
                 logger=logger,
             )["I"]
+            logger.debug(f"Computing PB took {pc() - bench_t0} s")
 
             # Define a grid of "target" vectors pointing towards each pixel
+            bench_t0 = pc()
             target_psi = mwa_vcs_fluxcal.calcGeometricDelays(
                 tile_positions,
                 eval_freqs[ii].to(u.Hz).value,
                 alt_fine,
                 az_fine,
             )
+            logger.debug(f"Computing target_psi took {pc() - bench_t0} s")
 
             # Calculate the array factor power (Eq 11 of M+17)
+            bench_t0 = pc()
             afp = mwa_vcs_fluxcal.calcArrayFactorPower(look_psi, target_psi, logger=logger)
+            logger.debug(f"Computing afp took {pc() - bench_t0} s")
 
+            bench_t0 = pc()
             tsky = np.empty_like(afp)
             tabp = np.empty_like(afp)
             for kk in range(ntime):
@@ -350,6 +361,7 @@ def main(
                 # Calculate the tied-array beam power (Eq 12 of M+17)
                 # afp has shape (ntime,npixels) and pbp has shape (npixels,)
                 tabp[kk, ...] = afp[kk, ...] * pbp
+            logger.debug(f"Computing T_sky and TAB took {pc() - bench_t0} s")
 
             # Compute the integrals (Eqs 13 and 14 of M+17)
             # differential has shape (npixels,) and will be broadcast along axis=1

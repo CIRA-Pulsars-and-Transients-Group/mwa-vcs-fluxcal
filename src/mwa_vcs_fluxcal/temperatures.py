@@ -15,7 +15,7 @@ from scipy.interpolate import CubicSpline
 import mwa_vcs_fluxcal
 from mwa_vcs_fluxcal import RCVR_TEMP_FILE, SKY_TEMP_MAP_FILE
 
-__all__ = ["splineSkyTempAtCoord", "getSkyTempGrid", "splineRecieverTemp"]
+__all__ = ["splineSkyTempAtCoord", "getSkyTempAtCoords", "splineRecieverTemp"]
 
 
 def splineSkyTempAtCoord(
@@ -70,15 +70,15 @@ def splineSkyTempAtCoord(
     return tsky_spline
 
 
-def getSkyTempGrid(
+def getSkyTempAtCoords(
     coords: SkyCoord,
     obs_freq_mhz: float,
     sky_index: float = -2.55,
     logger: logging.Logger | None = None,
 ) -> np.ndarray:
-    """Estimate the sky temperature at a given coordinate, provided a metafits contenxt
-    for frequency information. Returns a CubicSpline for interpolation across the observed
-    frequency band.
+    """Estimate the sky temperature at given coordinates, provided a metafits contenxt
+    for frequency information. Returns the sky temperature at obs_freq_mhz for each
+    coordinate.
 
     :param coords: An astropy SkyCoord object for the desired sky locations
                   to retrive a sky temperature estimate from the Healpix map.

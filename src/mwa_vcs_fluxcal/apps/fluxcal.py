@@ -117,20 +117,15 @@ def main(
     # Correct baseline
     profile -= offpulse_mean
 
-    # Measure the signal-to-noise ratio
-    snr_peak = np.max(profile) / offpulse_std
-    snr_mean = integrate.trapezoid(profile, dx=1 / archive.get_nbin()) / offpulse_std
-    logger.info(f"S/N (peak) = {snr_peak}")
-    logger.info(f"S/N (mean) = {snr_mean}")
+    # Normalise the pulse profile
+    snr_profile = profile / offpulse_std
 
     if plot_profile:
         mwa_vcs_fluxcal.plot_pulse_profile(
-            profile,
+            snr_profile,
             offpulse_win,
-            offpulse_std,
-            title="S/N$_\mathrm{{peak}} = {:.2f}$, S/N$_\mathrm{{mean}} = {:.2f}$".format(
-                snr_peak, snr_mean
-            ),
+            offpulse_std=1,
+            ylabel="S/N",
             logger=logger,
         )
 
@@ -206,8 +201,7 @@ def main(
         G=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.K * u.Jy**-1),
         SEFD=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.Jy),
         SEFD_mean=u.Quantity(np.float64(0.0), u.Jy),
-        SNR_peak=u.Quantity(np.float64(snr_peak), u.dimensionless_unscaled),
-        SNR_mean=u.Quantity(np.float64(snr_mean), u.dimensionless_unscaled),
+        SNR_peak=u.Quantity(np.max(snr_profile), u.dimensionless_unscaled),
         noise_rms=u.Quantity(np.float64(0.0), u.Jy),
         S_peak=u.Quantity(np.float64(0.0), u.Jy),
         S_mean=u.Quantity(np.float64(0.0), u.Jy),
@@ -215,7 +209,7 @@ def main(
 
     # Assumptions
     fc = 0.7
-    eta = 1
+    eta = 0.98
     npol = 2
     t0 = 290 * u.K
 
@@ -344,7 +338,7 @@ def main(
                     location=MWA_LOCATION,
                     obstime=eval_times[kk],
                 )
-                tsky[kk, ...] = mwa_vcs_fluxcal.getSkyTempGrid(
+                tsky[kk, ...] = mwa_vcs_fluxcal.getSkyTempAtCoords(
                     pix_coords, eval_freqs[ii].to(u.MHz).value, logger=logger
                 )
 
@@ -355,7 +349,7 @@ def main(
             # Compute the integrals (Eq 13 of M+17)
             # integrands have dimensions (ntime,npixels)
             # integrals have dimensions (ntime,)
-            pixel_area = fine_grid_res.radian * fine_grid_res.radian * np.sin(za_fine)
+            pixel_area = fine_grid_res.radian**2 * np.sin(za_fine)
             integrand_top = tabp * tsky * pixel_area
             integrand_bot = tabp * pixel_area
             integrand_Omega_A = afp * pixel_area
@@ -373,7 +367,7 @@ def main(
         Omega_A = 4 * np.pi * Omega_A * u.sr
 
         # Effective area (Eq 15 of M+17)
-        A_eff = eta * (4 * np.pi * u.sr * c**2 / (eval_freqs[ii].to(u.s**-1) ** 2 * Omega_A))
+        A_eff = eta * 4 * np.pi * u.sr * (c / eval_freqs[ii].to(u.s**-1)) ** 2 / Omega_A
 
         # Gain (Eq 16 of M+17)
         G = A_eff / (2 * k_B) * SI_TO_JY
@@ -400,9 +394,11 @@ def main(
 
     # Radiometer equation (Eq 3 of M+17)
     sefd_mean = np.mean(results["SEFD"])
-    radiometer_noise = sefd_mean / np.sqrt(npol * df.to(1 / u.s) * dt)
-    S_peak = snr_peak * radiometer_noise
-    S_mean = snr_mean * radiometer_noise
+    dt_bin = dt / archive.get_nbin()
+    radiometer_noise = sefd_mean / np.sqrt(npol * df.to(1 / u.s) * dt_bin)
+    flux_density_profile = snr_profile * radiometer_noise
+    S_peak = np.max(flux_density_profile)
+    S_mean = integrate.trapezoid(flux_density_profile) / archive.get_nbin()
     logger.info(f"SEFD = {sefd_mean.to(u.Jy).to_string()}")
     logger.info(f"Peak flux density = {S_peak.to(u.mJy).to_string()}")
     logger.info(f"Mean flux density = {S_mean.to(u.mJy).to_string()}")

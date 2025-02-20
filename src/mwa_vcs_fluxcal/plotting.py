@@ -29,7 +29,8 @@ def plot_pulse_profile(
     profile: np.ndarray,
     offpulse_win: np.ndarray,
     offpulse_std: float,
-    title: str,
+    ylabel: str = "Flux Density",
+    title: str = None,
     savename: str = "pulse_profile.png",
     logger: logging.Logger | None = None,
 ) -> None:
@@ -44,6 +45,8 @@ def plot_pulse_profile(
         The bin indices of the offpulse region.
     offpulse_std : `float`
         The standard deviation of the offpulse noise.
+    ylabel : `str`,
+        The y-axis label. Default: "Flux Density".
     title : `str`, optional
         A title for the plot. Default: None.
     savename : `str`, optional
@@ -101,7 +104,7 @@ def plot_pulse_profile(
         color="k",
         alpha=0.2,
         zorder=0,
-        label=f"$\sigma={offpulse_std:.6f}$",
+        # label=f"$\sigma={offpulse_std:.6f}$",
     )
 
     ax.set_xlim(xlims)
@@ -109,7 +112,7 @@ def plot_pulse_profile(
     ax.minorticks_on()
     ax.tick_params(axis="both", which="both", right=True, top=True, direction="in")
     ax.set_xlabel("Pulse Phase")
-    ax.set_ylabel("Flux Density [arb. units]")
+    ax.set_ylabel(ylabel)
     if title is not None:
         ax.set_title(title)
 

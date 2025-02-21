@@ -15,6 +15,7 @@ __all__ = [
     "plot_pulse_profile",
     "plot_trcvr_vc_freq",
     "plot_primary_beam",
+    "plot_tied_array_beam",
     "plot_3d_result",
 ]
 
@@ -234,6 +235,69 @@ def plot_primary_beam(
     cbar.ax.tick_params(labelsize=10)
     for contour_level in contour_levels:
         cbar.ax.axhline(contour_level, color="k", lw=1)
+
+    logger.info(f"Saving plot file: {savename}")
+    fig.savefig(savename)
+
+    plt.close()
+
+
+def plot_tied_array_beam(
+    grid_az: np.ndarray[float],
+    grid_za: np.ndarray[float],
+    grid_tabp: np.ndarray[float],
+    savename: str = "tied_array_beam.png",
+    logger: logging.Logger | None = None,
+) -> None:
+    """Plot the tied array beam power.
+
+    Parameters
+    ----------
+    grid_az : `np.ndarray[float]`
+        A 2D grid of azimuth angles in radians.
+    grid_za : `np.ndarray[float]`
+        A 2D grid of zenith angles in radians.
+    grid_tabp : `np.ndarray[float]`
+        A 2D grid of powers.
+    savename : `str`, optional
+        The filename to save the plot as. Default: "tied_array_beam.png".
+    logger : `logging.Logger`, optional
+        A logger to use. Default: `None`.
+    """
+    if logger is None:
+        logger = mwa_vcs_fluxcal.get_logger()
+
+    cmap = plt.get_cmap("cmr.arctic_r")
+    cmap.set_under(color="w")
+
+    fig = plt.figure(figsize=(6, 5), dpi=300, tight_layout=True)
+    ax = fig.add_subplot(projection="polar")
+    im = ax.pcolormesh(
+        grid_az,
+        grid_za,
+        grid_tabp,
+        rasterized=True,
+        shading="auto",
+        cmap=cmap,
+    )
+    ax.set_theta_zero_location("N")
+    ax.set_theta_direction(-1)
+    ax.set_rlabel_position(157.5)
+    ax.grid(ls=":", color="0.5")
+    ax.set_ylim(np.radians([0, 90]))
+    ax.set_yticks(np.radians([20, 40, 60, 80]))
+    ax.set_yticklabels(
+        ["${}^\\circ$".format(int(x)) for x in np.round(np.degrees(ax.get_yticks()), 0)]
+    )
+    ax.set_xlabel("Azimuth angle [deg]", labelpad=5)
+    ax.set_ylabel("Zenith angle [deg]", labelpad=30)
+    cbar = plt.colorbar(
+        im,
+        pad=0.13,
+        extend="min",
+    )
+    cbar.ax.set_ylabel("Zenith-normalised beam power", labelpad=10)
+    cbar.ax.tick_params(labelsize=10)
 
     logger.info(f"Saving plot file: {savename}")
     fig.savefig(savename)

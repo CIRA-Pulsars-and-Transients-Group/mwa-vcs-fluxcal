@@ -50,6 +50,7 @@ from mwa_vcs_fluxcal import MWA_LOCATION, SI_TO_JY
 @click.option("--plot_profile", is_flag=True, help="Plot the pulse profile.")
 @click.option("--plot_trec", is_flag=True, help="Plot the receiver temperature.")
 @click.option("--plot_pb", is_flag=True, help="Plot the primary beam.")
+@click.option("--plot_tab", is_flag=True, help="Plot the tied array beam.")
 @click.option("--plot_sefd", is_flag=True, help="Plot the SEFD results in 3D (time,freq,SEFD).")
 def main(
     archive: str,
@@ -64,6 +65,7 @@ def main(
     plot_profile: bool,
     plot_trec: bool,
     plot_pb: bool,
+    plot_tab: bool,
     plot_sefd: bool,
 ) -> None:
     log_level_dict = mwa_vcs_fluxcal.get_log_levels()
@@ -225,8 +227,18 @@ def main(
     # significant power in the primary beam
     az_box_coarse = np.arange(0, 2 * np.pi, coarse_grid_res.radian)
     za_box_coarse = np.arange(0, np.pi / 2, coarse_grid_res.radian)
-    az_grid_coarse, za_grid_coarse = np.meshgrid(az_box_coarse, za_box_coarse)
+    az_grid_coarse, za_grid_coarse = np.meshgrid(
+        az_box_coarse,
+        za_box_coarse,
+        # indexing="ij" ??????
+    )
     alt_grid_coarse = np.pi / 2 - za_grid_coarse
+
+    # We will need this to keep track of which pixels correspond to which array
+    # indices in the original array
+    az_grid_idx_coarse, za_grid_idx_coarse = np.meshgrid(
+        np.arange(az_grid_coarse.shape[0]), np.arange(az_grid_coarse.shape[1]), indexing="ij"
+    )
 
     # How many fine pixels will we compute per job?
     max_pixels_per_job = 10**5
@@ -288,12 +300,16 @@ def main(
         # pixels from the primary beam map.
         az_blocks = az_grid_coarse_inbeam.flatten()
         za_blocks = za_grid_coarse_inbeam.flatten()
+        az_idx_blocks = az_grid_idx_coarse.flatten()
+        za_idx_blocks = za_grid_idx_coarse.flatten()
 
         # Calculate how many blocks there are before/after masking
         num_blocks_tot = az_blocks.size
         nan_blocks = np.isnan(az_blocks)
         az_blocks = az_blocks[~nan_blocks]
         za_blocks = za_blocks[~nan_blocks]
+        az_idx_blocks = az_idx_blocks[~nan_blocks]
+        za_idx_blocks = za_idx_blocks[~nan_blocks]
         num_blocks_cut = az_blocks.size
         logger.info(f"Integrating {num_blocks_cut / num_blocks_tot * 100:.2f}% of the sky")
 
@@ -304,11 +320,16 @@ def main(
         # Split up the blocks array into groups of one or more blocks (i.e. jobs)
         az_jobs = np.array_split(az_blocks, num_jobs)
         za_jobs = np.array_split(za_blocks, num_jobs)
+        az_idx_jobs = np.array_split(az_idx_blocks, num_jobs)
+        za_idx_jobs = np.array_split(za_idx_blocks, num_jobs)
 
         # Arrays to store integrals for each time step
         integral_B_T = np.zeros(ntime, dtype=np.float64)
         integral_B = np.zeros(ntime, dtype=np.float64)
         integral_afp = np.zeros(ntime, dtype=np.float64)
+
+        # Full sky (coarse resolution) TAB
+        tabp_coarse = np.zeros_like(grid_pbp)
 
         # Make sure there are no INFO-level logs in this loop
         for jj in tqdm(range(num_jobs), unit="job", disable=disable_tqdm):
@@ -316,6 +337,8 @@ def main(
 
             az_job = az_jobs[jj]
             za_job = za_jobs[jj]
+            az_idx = az_idx_jobs[jj]
+            za_idx = za_idx_jobs[jj]
 
             az_fine, za_fine = mwa_vcs_fluxcal.upsample_blocks(
                 az_job, za_job, coarse_grid_res.radian, fine_grid_res.radian
@@ -381,6 +404,20 @@ def main(
             integral_B_T += np.sum(integrand_B_T, axis=1)
             integral_B += np.sum(integrand_B, axis=1)
             integral_afp += np.sum(integrand_afp, axis=1)
+
+            # Compute the mean TAB for each block
+            tabp_2d = tabp.reshape(az_job.size, -1)
+            for n, m, p in zip(az_idx, za_idx, tabp_2d[:], strict=True):
+                tabp_coarse[n, m] = np.mean(p)
+
+        if plot_tab:
+            mwa_vcs_fluxcal.plot_tied_array_beam(
+                az_grid_coarse,
+                za_grid_coarse,
+                tabp_coarse,
+                savename=f"tied_array_beam_masked_{eval_freqs[ii].to(u.MHz).value:.0f}MHz.png",
+                logger=logger,
+            )
 
         # Antenna temperature (Eq 13 of M+17)
         # The integrals have units of sr that cancel out

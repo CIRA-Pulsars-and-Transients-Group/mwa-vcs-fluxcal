@@ -6,10 +6,11 @@ import logging
 
 import numpy as np
 import psrchive
+import toml
 
 import mwa_vcs_fluxcal
 
-__all__ = ["read_archive", "log_nan_zeros"]
+__all__ = ["read_archive", "log_nan_zeros", "qty_dict_to_toml"]
 
 
 def read_archive(filename: str, logger: logging.Logger = None) -> psrchive.Archive:
@@ -75,3 +76,20 @@ def log_nan_zeros(arr: np.ndarray) -> np.ndarray:
         The log of the input array with zeros replaced by `np.nan`.
     """
     return np.log10(np.where(arr > 0, arr, np.nan))
+
+
+def qty_dict_to_toml(qty_dict: dict, savename="qty_dict.toml") -> None:
+    """Write a dictionary of astropy Quantities to a TOML file.
+
+    Parameters
+    ----------
+    qty_dict : `dict`
+        A dictionary where each entry is an astropy Quantity.
+    savename : `str`, optional
+        The name of the file to write the TOML-encoded string to. Default: "qty_dict.png".
+    """
+    vals_dict = dict()
+    for key in qty_dict:
+        vals_dict[key] = [qty_dict[key].value, qty_dict[key].unit.to_string()]
+    with open(savename, "w") as f:
+        toml.dump(vals_dict, f, encoder=toml.TomlNumpyEncoder())

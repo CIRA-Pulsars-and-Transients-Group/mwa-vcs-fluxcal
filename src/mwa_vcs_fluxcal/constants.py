@@ -15,6 +15,10 @@ __all__ = [
     "SKY_TEMP_MAP_FILE",
     "RCVR_TEMP_FILE",
     "SI_TO_JY",
+    "fc",
+    "eta",
+    "npol",
+    "t0",
 ]
 
 # MWA telescope location
@@ -34,3 +38,9 @@ RCVR_TEMP_FILE = pkg_resources.resource_filename("mwa_vcs_fluxcal", "data/MWA_Tr
 
 # Jansky conversion factor
 SI_TO_JY = 10**26 * u.Jy / (u.W * u.m**-2 * u.Hz**-1)
+
+# Assumptions
+fc = 0.7
+eta = 0.98
+npol = 2
+t0 = 290 * u.K

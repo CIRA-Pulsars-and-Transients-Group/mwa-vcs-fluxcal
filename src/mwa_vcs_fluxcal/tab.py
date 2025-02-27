@@ -254,8 +254,8 @@ def calcArrayFactorPower(
     if logger is None:
         logger = mwa_vcs_fluxcal.get_logger()
 
-    # At this stage, the shape of target_w = (nant, n_ra, n_dec) and while
-    # the shape of look_w = (nant,)
+    # At this stage, the shape of target_w = (nant,...) and while
+    # the shape of look_w = (...,nant)
     logger.debug("Summing over antennas")
     sum_over_antennas = np.tensordot(np.conjugate(look_w), target_w, axes=1)
     # From the numpy.tensordot documentation:

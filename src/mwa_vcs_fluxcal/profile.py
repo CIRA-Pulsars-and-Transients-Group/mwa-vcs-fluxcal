@@ -36,7 +36,7 @@ def get_profile_from_archive(archive: psrchive.Archive) -> np.ndarray:
 
 def get_offpulse_region(
     data: np.ndarray, windowsize: int | None = None, logger: logging.Logger | None = None
-) -> np.ndarray:
+) -> np.ndarray[bool]:
     """Determine the off-pulse window by minimising the integral over a range.
     i.e., because noise should integrate towards zero, finding the region that
     minimises the area mean it is representative of the noise level.
@@ -55,7 +55,9 @@ def get_offpulse_region(
     Returns
     -------
     offpulse_win : `np.ndarray`
-        A list of bins corresponding to the off-pulse region.
+        An array of bins corresponding to the off-pulse region.
+    offpulse_mask : `np.ndarray[bool]`
+        A mask which is True for offpulse bins and False for onpulse bins.
     """
     if logger is None:
         logger = mwa_vcs_fluxcal.get_logger()
@@ -74,4 +76,8 @@ def get_offpulse_region(
     minidx = np.argmin(integral)
     offpulse_win = np.arange(minidx - windowsize // 2, minidx + windowsize // 2) % nbins
 
-    return offpulse_win
+    offpulse_mask = np.full(data.size, False, dtype=bool)
+    for bin_idx in offpulse_win:
+        offpulse_mask[bin_idx] = True
+
+    return offpulse_win, offpulse_mask

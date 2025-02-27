@@ -7,6 +7,7 @@ import logging
 import cmasher as cmr
 import matplotlib.pyplot as plt
 import numpy as np
+from astropy.coordinates import SkyCoord
 from scipy.interpolate import CubicSpline, RegularGridInterpolator
 
 import mwa_vcs_fluxcal
@@ -16,6 +17,7 @@ __all__ = [
     "plot_trcvr_vc_freq",
     "plot_primary_beam",
     "plot_tied_array_beam",
+    "plot_sky_images",
     "plot_3d_result",
 ]
 
@@ -291,13 +293,100 @@ def plot_tied_array_beam(
     )
     ax.set_xlabel("Azimuth angle [deg]", labelpad=5)
     ax.set_ylabel("Zenith angle [deg]", labelpad=30)
-    cbar = plt.colorbar(
-        im,
-        pad=0.13,
-        extend="min",
-    )
+    cbar = plt.colorbar(im, pad=0.13, extend="min")
     cbar.ax.set_ylabel("Zenith-normalised beam power", labelpad=10)
     cbar.ax.tick_params(labelsize=10)
+
+    logger.info(f"Saving plot file: {savename}")
+    fig.savefig(savename)
+
+    plt.close()
+
+
+def plot_sky_images(
+    grid_az: np.ndarray[float],
+    grid_za: np.ndarray[float],
+    grid_list: list,
+    label_list: list,
+    pulsar_coords: SkyCoord = None,
+    savename: str = "sky_images.png",
+    logger: logging.Logger | None = None,
+) -> None:
+    """Plot multiple arrays on polar Az/ZA skymaps.
+
+    Parameters
+    ----------
+    grid_az : `np.ndarray[float]`
+        A 2D grid of azimuth angles in radians.
+    grid_za : `np.ndarray[float]`
+        A 2D grid of zenith angles in radians.
+    grid_list : `list`
+        A list of 2D data grids to plot.
+    label_list : `list`
+        A list of data labels to use for the colour bars.
+    pulsar_coords : `SkyCoord`, optional
+        The coordinates of the target pulsar to plot in the beam. Default: None.
+    savename : `str`, optional
+        The filename to save the plot as. Default: "sky_images.png".
+    logger : `logging.Logger`, optional
+        A logger to use. Default: `None`.
+    """
+    if logger is None:
+        logger = mwa_vcs_fluxcal.get_logger()
+
+    cmap = plt.get_cmap("cmr.arctic_r")
+    cmap.set_under(color="w")
+
+    num_images = len(grid_list)
+
+    fig, axes = plt.subplots(
+        ncols=num_images,
+        figsize=(5 * num_images, 6),
+        dpi=300,
+        tight_layout=True,
+        subplot_kw={"projection": "polar"},
+    )
+    if type(axes) is not np.ndarray:
+        axes = np.array([axes])
+
+    im_list = []
+    for ii, grid_data in enumerate(grid_list):
+        im = axes[ii].pcolormesh(
+            grid_az,
+            grid_za,
+            grid_data,
+            rasterized=True,
+            shading="auto",
+            cmap=cmap,
+        )
+        im_list.append(im)
+
+    for ax, im, lab in zip(axes, im_list, label_list, strict=True):
+        if pulsar_coords is not None:
+            ax.plot(
+                pulsar_coords.az.radian,
+                np.pi / 2 - pulsar_coords.alt.radian,
+                linestyle="none",
+                marker="o",
+                color="tab:red",
+                ms=3,
+                mfc="none",
+            )
+
+        ax.set_theta_zero_location("N")
+        ax.set_theta_direction(-1)
+        ax.set_rlabel_position(157.5)
+        ax.grid(ls=":", color="0.5")
+        ax.set_ylim(np.radians([0, 90]))
+        ax.set_yticks(np.radians([20, 40, 60, 80]))
+        ax.set_yticklabels(
+            ["${}^\\circ$".format(int(x)) for x in np.round(np.degrees(ax.get_yticks()), 0)]
+        )
+        ax.set_xlabel("Azimuth angle [deg]", labelpad=5)
+        ax.set_ylabel("Zenith angle [deg]", labelpad=30)
+        cbar = plt.colorbar(im, ax=ax, orientation="horizontal", pad=0.13)
+        cbar.ax.set_xlabel(lab, labelpad=10)
+        cbar.ax.tick_params(labelsize=10)
 
     logger.info(f"Saving plot file: {savename}")
     fig.savefig(savename)

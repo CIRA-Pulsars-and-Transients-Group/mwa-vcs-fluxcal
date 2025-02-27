@@ -57,12 +57,9 @@ def tesellate_primary_beam(
 
     Returns
     -------
-    az_inbeam : `np.ndarray[float | np.nan]`
-        A duplicate of `az` with pixels outside of the beam set to NaN.
-    za_inbeam : `np.ndarray[float | np.nan]`
-        A duplicate of `za` with pixels outside of the beam set to NaN.
-    pbp_inbeam : `np.ndarray[float | np.nan]`
-        A duplicate of `pbp` with pixels outside of the beam set to NaN.
+    mask : `np.ndarray[bool]`
+        A mask with the shape of the 2D input grid. True for pixels above a
+        zenith-normalised power plevel.
     """
     # Grid has dimensions (za, az)
     za_idx, az_idx = np.meshgrid(np.arange(pbp.shape[1]), np.arange(pbp.shape[0]))
@@ -95,17 +92,13 @@ def tesellate_primary_beam(
         # Update the overall pixel mask
         mask = np.logical_or(mask, submask)
 
-    # Mask the input arrays
-    az_inbeam = np.where(mask, az, np.nan)
-    za_inbeam = np.where(mask, za, np.nan)
-    pbp_inbeam = np.where(mask, pbp, np.nan)
-
     # Make a plot showing the masked primary beam power
     if plot:
         cmap = plt.get_cmap("cmr.arctic")
         fig, ax = plt.subplots(
             figsize=(6, 5), dpi=300, tight_layout=True, subplot_kw={"projection": "polar"}
         )
+        pbp_inbeam = np.where(mask, pbp, np.nan)
         im = ax.pcolormesh(az, za, np.log10(pbp_inbeam), rasterized=True, shading="auto", cmap=cmap)
         if pulsar_coords is not None:
             ax.plot(
@@ -136,7 +129,7 @@ def tesellate_primary_beam(
         fig.savefig(savename)
         plt.close()
 
-    return az_inbeam, za_inbeam, pbp_inbeam
+    return mask
 
 
 def upsample_blocks(

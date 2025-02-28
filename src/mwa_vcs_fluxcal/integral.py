@@ -14,7 +14,7 @@ from mwalib import MetafitsContext
 from tqdm import tqdm
 
 import mwa_vcs_fluxcal
-from mwa_vcs_fluxcal import MWA_LOCATION, SI_TO_JY, eta, fc, t0
+from mwa_vcs_fluxcal import MWA_LOCATION, SI_TO_JY, eta, fc
 
 __all__ = ["compute_sky_integrals"]
 
@@ -31,6 +31,7 @@ def compute_sky_integrals(
     max_pixels_per_job: int = 10**5,
     plot_pb: bool = False,
     plot_images: bool = False,
+    T_amb: u.Quantity = 295.55 * u.K,
     logger: logging.Logger | None = None,
 ) -> dict:
     if logger is None:
@@ -64,6 +65,7 @@ def compute_sky_integrals(
 
     # Dictionary to store the results of the integrals
     results = dict(
+        T_amb=T_amb.to(u.K),
         T_rec=u.Quantity(np.empty((nfreq), dtype=np.float64), u.K),
         T_ant=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.K),
         T_sys=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.K),
@@ -368,7 +370,7 @@ def compute_sky_integrals(
         T_ant = integral_B_T / integral_B * u.K
 
         # System temperature (Eq 1 of M+17)
-        T_sys = eta * T_ant + (1 - eta) * t0 + T_rec[ii]
+        T_sys = eta * T_ant + (1 - eta) * T_amb + T_rec[ii]
 
         # Beam solid angle (Eq 14 of M+17)
         Omega_A = integral_afp * u.sr

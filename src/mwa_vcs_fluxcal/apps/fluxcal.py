@@ -7,7 +7,7 @@
 # https://ui.adsabs.harvard.edu/abs/2017ApJ...851...20M/abstract
 
 # TODO: Get the additional flagged tiles from the calibration solution
-# TODO: Get the ambient temperature from the metafits context
+# TODO: Work out the amount of flagged data from the archive
 
 import astropy.units as u
 import click
@@ -102,6 +102,7 @@ def main(
     # Prepare metadata
     logger.info(f"Loading metafits: {metafits}")
     context = mwalib.MetafitsContext(metafits)
+    T_amb = mwa_vcs_fluxcal.getAmbientTemp(metafits)
 
     # Get frequency and time metadata from archive
     fctr = archive.get_centre_frequency() * u.MHz
@@ -170,6 +171,7 @@ def main(
         min_pbp,
         plot_pb=plot_pb,
         plot_images=plot_images,
+        T_amb=T_amb,
         logger=logger,
     )
 

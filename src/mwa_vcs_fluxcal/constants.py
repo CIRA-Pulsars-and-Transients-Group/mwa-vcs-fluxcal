@@ -18,7 +18,6 @@ __all__ = [
     "fc",
     "eta",
     "npol",
-    "t0",
 ]
 
 # MWA telescope location
@@ -43,4 +42,3 @@ SI_TO_JY = 10**26 * u.Jy / (u.W * u.m**-2 * u.Hz**-1)
 fc = 0.7
 eta = 0.98
 npol = 2
-t0 = 290 * u.K

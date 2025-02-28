@@ -4,8 +4,10 @@
 
 import logging
 
+import astropy.units as u
 import numpy as np
 from astropy.coordinates import SkyCoord
+from astropy.io import fits
 from astropy.table import Table
 from healpy import read_map
 from healpy.pixelfunc import get_interp_val
@@ -15,7 +17,7 @@ from scipy.interpolate import CubicSpline
 import mwa_vcs_fluxcal
 from mwa_vcs_fluxcal import RCVR_TEMP_FILE, SKY_TEMP_MAP_FILE
 
-__all__ = ["splineSkyTempAtCoord", "getSkyTempAtCoords", "splineRecieverTemp"]
+__all__ = ["splineSkyTempAtCoord", "getSkyTempAtCoords", "splineRecieverTemp", "getAmbientTemp"]
 
 
 def splineSkyTempAtCoord(
@@ -126,3 +128,30 @@ def splineRecieverTemp() -> CubicSpline:
     trcvr_spline = CubicSpline(tab["freq"].value, tab["trec"].value)
 
     return trcvr_spline
+
+
+def getAmbientTemp(metafits: str) -> u.Quantity:
+    """Get the ambient temperature from a metafits file.
+
+    Parameters
+    ----------
+    metafits : `str`
+        The path to the metafits file.
+
+    Returns
+    -------
+    mean_temp : `u.Quantity`
+        The mean ambient tempertature. If the temperature cannot be found in the
+        metafits then use the mean annual temperature of 22.4 deg C. The output
+        Quantity is in units of Kelvin.
+    """
+    hdu_list = fits.open(metafits)
+    temps_C = hdu_list[1].data["BFTemps"]
+    print(temps_C)
+    temps_C = temps_C[~np.isnan(temps_C)]
+    print(temps_C)
+    if len(temps_C) == 0:
+        mean_temp = 22.4 * u.deg_C
+    else:
+        mean_temp = np.mean(temps_C) * u.deg_C
+    return mean_temp.to(u.K)

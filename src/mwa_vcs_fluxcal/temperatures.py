@@ -147,11 +147,9 @@ def getAmbientTemp(metafits: str) -> u.Quantity:
     """
     hdu_list = fits.open(metafits)
     temps_C = hdu_list[1].data["BFTemps"]
-    print(temps_C)
     temps_C = temps_C[~np.isnan(temps_C)]
-    print(temps_C)
     if len(temps_C) == 0:
         mean_temp = 22.4 * u.deg_C
     else:
         mean_temp = np.mean(temps_C) * u.deg_C
-    return mean_temp.to(u.K)
+    return mean_temp.to(u.K, equivalencies=u.temperature())

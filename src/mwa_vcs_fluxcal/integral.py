@@ -28,7 +28,7 @@ def compute_sky_integrals(
     fine_grid_res: Angle,
     coarse_grid_res: Angle,
     min_pbp: float,
-    max_pixels_per_job: int = 10**5,
+    max_pix_per_job: int = 10**5,
     plot_pb: bool = False,
     plot_images: bool = False,
     T_amb: u.Quantity = 295.55 * u.K,
@@ -101,7 +101,7 @@ def compute_sky_integrals(
     upscale_ratio = (coarse_grid_res.arcmin / fine_grid_res.arcmin) ** 2
 
     # How many coarse pixels per job?
-    max_blocks_per_job = max_pixels_per_job // upscale_ratio
+    max_blocks_per_job = max_pix_per_job // upscale_ratio
 
     # Receiver temperature
     T_rec_spline = mwa_vcs_fluxcal.splineRecieverTemp()

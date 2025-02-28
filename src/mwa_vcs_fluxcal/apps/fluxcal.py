@@ -44,6 +44,12 @@ from mwa_vcs_fluxcal import npol
 )
 @click.option("--nfreq", type=int, default=1, help="The number of frequency steps to evaluate.")
 @click.option("--ntime", type=int, default=1, help="The number of time steps to evaluate.")
+@click.option(
+    "--max_pix_per_job",
+    type=int,
+    default=10**5,
+    help="The maximum number of sky area pixels to compute per job.",
+)
 @click.option("--plot_profile", is_flag=True, help="Plot the pulse profile.")
 @click.option("--plot_trec", is_flag=True, help="Plot the receiver temperature.")
 @click.option("--plot_pb", is_flag=True, help="Plot the primary beam.")
@@ -59,6 +65,7 @@ def main(
     min_pbp: float,
     nfreq: int,
     ntime: int,
+    max_pix_per_job: int,
     plot_profile: bool,
     plot_trec: bool,
     plot_pb: bool,
@@ -169,6 +176,7 @@ def main(
         fine_grid_res,
         coarse_grid_res,
         min_pbp,
+        max_pix_per_job=max_pix_per_job,
         plot_pb=plot_pb,
         plot_images=plot_images,
         T_amb=T_amb,

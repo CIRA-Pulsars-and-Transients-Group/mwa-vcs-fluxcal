@@ -7,7 +7,6 @@
 # https://ui.adsabs.harvard.edu/abs/2017ApJ...851...20M/abstract
 
 # TODO: Get the additional flagged tiles from the calibration solution
-# TODO: Work out the amount of flagged data from the archive
 
 import astropy.units as u
 import click
@@ -50,6 +49,18 @@ from mwa_vcs_fluxcal import npol
     default=10**5,
     help="The maximum number of sky area pixels to compute per job.",
 )
+@click.option(
+    "--bw_flagged",
+    type=click.FloatRange(0.0, 1.0),
+    default=0.0,
+    help="The fraction of the bandwidth flagged.",
+)
+@click.option(
+    "--time_flagged",
+    type=click.FloatRange(0.0, 1.0),
+    default=0.0,
+    help="The fraction of the integration time flagged.",
+)
 @click.option("--plot_profile", is_flag=True, help="Plot the pulse profile.")
 @click.option("--plot_trec", is_flag=True, help="Plot the receiver temperature.")
 @click.option("--plot_pb", is_flag=True, help="Plot the primary beam.")
@@ -66,6 +77,8 @@ def main(
     nfreq: int,
     ntime: int,
     max_pix_per_job: int,
+    bw_flagged: float,
+    time_flagged: float,
     plot_profile: bool,
     plot_trec: bool,
     plot_pb: bool,
@@ -124,6 +137,8 @@ def main(
     logger.info(f"Bandwidth = {bw.to_string()}")
     logger.info(f"Integration time = {dt.to_string()}")
     logger.info(f"Start MJD = {start_time.to_string()}")
+    logger.info(f"Bandwidth flagged = {bw_flagged * 100:.2f}%")
+    logger.info(f"Integration time flagged = {time_flagged * 100:.2f}%")
 
     # Calculate which freqs/times to evalue the integral at
     if nfreq == 1:
@@ -211,8 +226,9 @@ def main(
         )
 
     # Radiometer equation (Eq 3 of M+17)
-    dt_bin = dt / archive.get_nbin()
-    radiometer_noise = results["SEFD_mean"] / np.sqrt(npol * bw.to(1 / u.s) * dt_bin)
+    dt_bin = dt * (1 - time_flagged) / archive.get_nbin()
+    bw_valid = bw * (1 - bw_flagged)
+    radiometer_noise = results["SEFD_mean"] / np.sqrt(npol * bw_valid.to(1 / u.s) * dt_bin)
     flux_density_profile = snr_profile * radiometer_noise
     S_peak = np.max(flux_density_profile)
     S_mean = integrate.trapezoid(flux_density_profile) / archive.get_nbin()

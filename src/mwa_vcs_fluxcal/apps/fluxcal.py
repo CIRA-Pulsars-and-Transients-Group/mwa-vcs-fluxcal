@@ -28,6 +28,7 @@ from mwa_vcs_fluxcal import npol
     "log_level",
     type=click.Choice(list(mwa_vcs_fluxcal.get_log_levels()), case_sensitive=False),
     default="INFO",
+    show_default=True,
     help="The logger verbosity level.",
 )
 @click.option("-m", "metafits", type=click.Path(exists=True), help="An MWA metafits file.")
@@ -40,32 +41,55 @@ from mwa_vcs_fluxcal import npol
 @click.option("-b", "bscrunch", type=int, help="Bscrunch to this number of phase bins.")
 @click.option("-w", "windowsize", type=int, help="Window size to use to find the offpulse.")
 @click.option(
-    "--fine_res", type=float, default=1, help="The resolution of the integral, in arcmin."
+    "--fine_res",
+    type=float,
+    default=1,
+    show_default=True,
+    help="The resolution of the integral, in arcmin.",
 )
 @click.option(
-    "--coarse_res", type=float, default=30, help="The resolution of the primary beam map, in arcmin"
+    "--coarse_res",
+    type=float,
+    default=30,
+    show_default=True,
+    help="The resolution of the primary beam map, in arcmin",
 )
 @click.option(
-    "--min_pbp", type=float, default=0.001, help="Only integrate above this primary beam power."
+    "--min_pbp",
+    type=float,
+    default=0.001,
+    show_default=True,
+    help="Only integrate above this primary beam power.",
 )
-@click.option("--nfreq", type=int, default=1, help="The number of frequency steps to evaluate.")
-@click.option("--ntime", type=int, default=1, help="The number of time steps to evaluate.")
+@click.option(
+    "--nfreq",
+    type=int,
+    default=1,
+    show_default=True,
+    help="The number of frequency steps to evaluate.",
+)
+@click.option(
+    "--ntime", type=int, default=1, show_default=True, help="The number of time steps to evaluate."
+)
 @click.option(
     "--max_pix_per_job",
     type=int,
     default=10**5,
+    show_default=True,
     help="The maximum number of sky area pixels to compute per job.",
 )
 @click.option(
     "--bw_flagged",
     type=click.FloatRange(0.0, 1.0),
     default=0.0,
+    show_default=True,
     help="The fraction of the bandwidth flagged.",
 )
 @click.option(
     "--time_flagged",
     type=click.FloatRange(0.0, 1.0),
     default=0.0,
+    show_default=True,
     help="The fraction of the integration time flagged.",
 )
 @click.option("--plot_profile", is_flag=True, help="Plot the pulse profile.")

@@ -10,7 +10,7 @@ from scipy import integrate
 
 import mwa_vcs_fluxcal
 
-__all__ = ["get_profile_from_archive", "get_offpulse_region"]
+__all__ = ["get_profile_from_archive", "get_offpulse_region", "get_snr_profile"]
 
 
 def get_profile_from_archive(archive: psrchive.Archive) -> np.ndarray:
@@ -81,3 +81,73 @@ def get_offpulse_region(
         offpulse_mask[bin_idx] = True
 
     return offpulse_win, offpulse_mask
+
+
+def get_snr_profile(
+    archive: psrchive.Archive,
+    noise_archive: str | None = None,
+    windowsize: int | None = None,
+    plot_profile: bool = False,
+    logger: logging.Logger | None = None,
+) -> np.ndarray:
+    """Get the S/N profile from a PSRCHIVE archive.
+
+    Parameters
+    ----------
+    archive : `psrchive.Archive`
+        The detection archive.
+    noise_archive : `psrchive.Archive`, optional
+        An archive of a fully dispersed observation. Default: `None`.
+    windowsize : `int`, optional
+        The window size (in bins) to use to find the offpulse. Default: `None`.
+    plot_profile : `bool`, optional
+        Plot the pulse profile. Default: `False`.
+    logger : `logging.Logger`, optional
+        A logger to use. Default: `None`.
+
+    Returns
+    -------
+    snr_profile: `np.ndarray`
+        The integrated pulse profile in S/N units.
+    """
+    if logger is None:
+        logger = mwa_vcs_fluxcal.get_logger()
+
+    # Get the Stokes I profile as a numpy array
+    profile = mwa_vcs_fluxcal.get_profile_from_archive(archive)
+
+    # Get the offpulse region of the profile
+    op_idx, op_mask = mwa_vcs_fluxcal.get_offpulse_region(
+        profile, windowsize=windowsize, logger=logger
+    )
+    offpulse = profile[op_mask]
+
+    if noise_archive is not None:
+        # Get the noise as a numpy array
+        noise = mwa_vcs_fluxcal.get_profile_from_archive(noise_archive)
+    else:
+        noise = offpulse
+
+    # Correct the profile baseline
+    profile -= np.mean(offpulse)
+    offpulse -= np.mean(offpulse)
+
+    # Convert the profile to S/N
+    snr_profile = profile / np.std(noise)
+
+    if noise_archive is not None:
+        noise_snr_profile = noise / np.std(noise)
+    else:
+        noise_snr_profile = None
+
+    if plot_profile:
+        mwa_vcs_fluxcal.plot_pulse_profile(
+            snr_profile,
+            noise_profile=noise_snr_profile,
+            offpulse_win=op_idx,
+            offpulse_std=1,
+            ylabel="S/N",
+            logger=logger,
+        )
+
+    return snr_profile

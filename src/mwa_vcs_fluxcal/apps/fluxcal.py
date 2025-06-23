@@ -22,7 +22,6 @@ from mwa_vcs_fluxcal import npol
 
 
 @click.command()
-@click.argument("archive", nargs=1, type=click.Path(exists=True))
 @click.option(
     "-L",
     "log_level",
@@ -32,6 +31,17 @@ from mwa_vcs_fluxcal import npol
     help="The logger verbosity level.",
 )
 @click.option("-m", "metafits", type=click.Path(exists=True), help="An MWA metafits file.")
+@click.option(
+    "--target",
+    type=str,
+    help="The target's RA/Dec in hour/deg units in any format accepted by SkyCoord.",
+)
+@click.option(
+    "-a",
+    "archive",
+    type=click.Path(exists=True),
+    help="An archive file to use to compute the pulse profile.",
+)
 @click.option(
     "-n",
     "noise_archive",
@@ -43,7 +53,7 @@ from mwa_vcs_fluxcal import npol
 @click.option(
     "--fine_res",
     type=float,
-    default=1,
+    default=2,
     show_default=True,
     help="The resolution of the integral, in arcmin.",
 )
@@ -98,9 +108,10 @@ from mwa_vcs_fluxcal import npol
 @click.option("--plot_images", is_flag=True, help="Plot visualisations of the integral quantities.")
 @click.option("--plot_3d", is_flag=True, help="Plot the results in 3D (time,freq,data).")
 def main(
-    archive: str,
     log_level: str,
     metafits: str,
+    target: str,
+    archive: str,
     noise_archive: str,
     bscrunch: int,
     windowsize: int,
@@ -121,57 +132,37 @@ def main(
     log_level_dict = mwa_vcs_fluxcal.get_log_levels()
     logger = mwa_vcs_fluxcal.get_logger(log_level=log_level_dict[log_level])
 
-    # Load, dedisperse, and baseline-subtract detection archive
-    archive = mwa_vcs_fluxcal.read_archive(
-        archive, bscrunch=bscrunch, subtract_baseline=True, dedisperse=True, logger=logger
-    )
-
-    # Get the Stokes I profile as a numpy array
-    profile = mwa_vcs_fluxcal.get_profile_from_archive(archive)
-
-    # Get the offpulse region of the profile
-    op_idx, op_mask = mwa_vcs_fluxcal.get_offpulse_region(
-        profile, windowsize=windowsize, logger=logger
-    )
-    offpulse = profile[op_mask]
-
-    if noise_archive is not None:
-        # Load, dedisperse, and baseline-subtract noise archive
-        noise_archive = mwa_vcs_fluxcal.read_archive(
-            noise_archive,
-            bscrunch=bscrunch,
-            subtract_baseline=True,
-            dedisperse=False,
-            logger=logger,
+    # If the archive is not provided, then the SEFD can be still be calculated but
+    # the mean flux density cannot
+    if archive is not None:
+        # Load, dedisperse, and baseline-subtract the detection archive
+        archive = mwa_vcs_fluxcal.read_archive(
+            archive, bscrunch=bscrunch, subtract_baseline=True, dedisperse=True, logger=logger
         )
 
-        # Get the noise as a numpy array
-        noise = mwa_vcs_fluxcal.get_profile_from_archive(noise_archive)
-    else:
-        noise = offpulse
+        if noise_archive is not None:
+            # Load, dedisperse, and baseline-subtract the noise archive
+            noise_archive = mwa_vcs_fluxcal.read_archive(
+                noise_archive,
+                bscrunch=bscrunch,
+                subtract_baseline=True,
+                dedisperse=False,
+                logger=logger,
+            )
 
-    # Correct the profile baseline
-    profile -= np.mean(offpulse)
-    offpulse -= np.mean(offpulse)
-
-    # Convert the profile to S/N
-    snr_profile = profile / np.std(noise)
-
-    if noise_archive is not None:
-        noise_snr_profile = noise / np.std(noise)
-    else:
-        noise_snr_profile = None
-
-    if plot_profile:
-        mwa_vcs_fluxcal.plot_pulse_profile(
-            snr_profile,
-            noise_profile=noise_snr_profile,
-            offpulse_win=op_idx,
-            offpulse_std=1,
-            ylabel="S/N",
+        snr_profile = mwa_vcs_fluxcal.get_snr_profile(
+            archive,
+            noise_archive=noise_archive,
+            windowsize=windowsize,
+            plot_profile=plot_profile,
             logger=logger,
         )
+    else:
+        if target is None:
+            logger.info("No target coordinates provided.")
+            exit(0)
 
+    # Cannot go any further without metadata
     if metafits is None:
         logger.info("No metafits file provided. Exiting.")
         exit(0)
@@ -181,42 +172,73 @@ def main(
     context = mwalib.MetafitsContext(metafits)
     T_amb = mwa_vcs_fluxcal.getAmbientTemp(metafits)
 
-    # Get frequency and time metadata from archive
-    fctr = archive.get_centre_frequency() * u.MHz
-    bw = archive.get_bandwidth() * u.MHz
+    # Get frequency and time metadata
+    chan_freqs_hz = context.metafits_fine_chan_freqs_hz
+    fctr = (np.min(chan_freqs_hz) + np.max(chan_freqs_hz)) / 2 / 1e6 * u.MHz
+    bw = context.obs_bandwidth_hz / 1e6 * u.MHz
+    t0 = Time(context.sched_start_mjd, format="mjd")
+    t1 = Time(context.sched_end_mjd, format="mjd")
+
+    if archive is not None:
+        fctr_ar = archive.get_centre_frequency() * u.MHz
+        bw_ar = archive.get_bandwidth() * u.MHz
+        t0_ar = Time(archive.get_first_Integration().get_start_time().in_days(), format="mjd")
+        t1_ar = Time(archive.get_last_Integration().get_end_time().in_days(), format="mjd")
+
+        if not np.isclose(fctr.value, fctr_ar.value, atol=0.01, rtol=0.0):
+            logger.warning(
+                f"Centre frequency in the archive ({fctr_ar.to_string()}) "
+                + f"is different to the metafits ({fctr.to_string()}). "
+                + "Using the archive value."
+            )
+            fctr = fctr_ar
+
+        if not np.isclose(bw.value, bw_ar.value, atol=0.01, rtol=0.0):
+            logger.warning(
+                f"Bandwidth in the archive ({bw_ar.to_string()}) "
+                + f"is different to the metafits ({bw.to_string()}). "
+                + "Using the archive value."
+            )
+            bw = bw_ar
+
+        if not np.isclose(t0.mjd, t0_ar.mjd, atol=1e-5, rtol=0.0):
+            logger.warning(
+                f"Start MJD in the archive ({t0_ar.mjd}) "
+                + f"differs by {(t0_ar - t0).to(u.s).to_string(precision=3)} "
+                + f"to the metafits ({t0.mjd}). Using the archive value."
+            )
+            t0 = t0_ar
+
+        if not np.isclose(t1.mjd, t1_ar.mjd, atol=1e-5, rtol=0.0):
+            logger.warning(
+                f"End MJD in the archive ({t1_ar.mjd}) "
+                + f"differs by {(t1_ar - t1).to(u.s).to_string(precision=3)} "
+                + f"to the metafits ({t1.mjd}). Using the archive value."
+            )
+            t1 = t1_ar
+
     f0 = fctr - bw / 2
     f1 = fctr + bw / 2
-    t0 = archive.get_first_Integration().get_start_time()
-    t1 = archive.get_last_Integration().get_end_time()
-    dt = (t1 - t0).in_seconds() * u.s
-    start_time = Time(t0.in_days(), format="mjd")
+    dt = t1 - t0
+
     logger.info(f"Centre frequency = {fctr.to_string()}")
     logger.info(f"Bandwidth = {bw.to_string()}")
-    logger.info(f"Integration time = {dt.to_string()}")
-    logger.info(f"Start MJD = {start_time.to_string()}")
+    logger.info(f"Integration time = {dt.to(u.s).to_string()}")
+    logger.info(f"Start MJD = {t0.to_string()}")
     logger.info(f"Bandwidth flagged = {bw_flagged * 100:.2f}%")
     logger.info(f"Integration time flagged = {time_flagged * 100:.2f}%")
 
     # Calculate which freqs/times to evalue the integral at
     if nfreq == 1:
-        eval_freqs = np.array([fctr.value]) * u.MHz
+        eval_freqs = np.array([fctr.to(u.MHz).value]) * u.MHz
     else:
-        eval_freqs = np.linspace(f0.value, f1.value, nfreq) * u.MHz
+        eval_freqs = np.linspace(f0.to(u.MHz).value, f1.to(u.MHz).value, nfreq) * u.MHz
     if ntime == 1:
-        eval_offsets = np.array([dt.value / 2]) * u.s
+        eval_offsets = np.array([dt.to(u.s).value / 2]) * u.s
     else:
-        eval_offsets = np.linspace(0, dt.value, ntime) * u.s
-    eval_times = start_time + eval_offsets
-    logger.info(f"Evaluating at freqs: {eval_freqs}")
-    logger.info(f"Evaluating at offsets: {eval_offsets}")
-    logger.info(f"Evaluating at times: {eval_times}")
-
-    # Calculate the beam width
-    max_baseline, _, _ = mwa_vcs_fluxcal.find_max_baseline(context)
-    max_baseline *= u.m
-    width = ((c / fctr.to(1 / u.s)) / max_baseline) * u.rad
-    logger.info(f"Maximum baseline: {max_baseline.to_string()}")
-    logger.info(f"Beam width ~ lambda/D: {width.to(u.arcmin).to_string()}")
+        eval_offsets = np.linspace(0, dt.to(u.s).value, ntime) * u.s
+    logger.info(f"Evaluating at {nfreq} frequencies: {eval_freqs}")
+    logger.info(f"Evaluating at {ntime} offsets: {eval_offsets}")
 
     # Define the grid resolutions
     fine_grid_res = Angle(fine_res, u.arcmin)
@@ -228,8 +250,13 @@ def main(
         exit(1)
 
     # Create a SkyCoord object defining the RA/Dec of the pulsar
-    ra_hms, dec_dms = archive.get_coordinates().getHMSDMS().split(" ")
-    pulsar_coords = SkyCoord(ra_hms, dec_dms, frame="icrs", unit=("hourangle", "deg"))
+    if archive is not None:
+        ra_hms, dec_dms = archive.get_coordinates().getHMSDMS().split(" ")
+        pulsar_coords = SkyCoord(ra_hms, dec_dms, frame="icrs", unit=("hourangle", "deg"))
+    else:
+        pulsar_coords = SkyCoord(target, frame="icrs", unit=("hourangle", "deg"))
+
+    logger.info(f"Target RA/Dec = {pulsar_coords.to_string(style='hmsdms')}")
 
     if plot_trec:
         # Plot the receiver temperature vs frequency
@@ -241,7 +268,7 @@ def main(
     # Compute the sky integrals required to get T_sys and gain
     inputs, results = mwa_vcs_fluxcal.compute_sky_integrals(
         context,
-        start_time,
+        t0,
         eval_offsets,
         eval_freqs,
         pulsar_coords,
@@ -282,24 +309,22 @@ def main(
             logger=logger,
         )
 
-    # Radiometer equation (Eq 3 of M+17)
-    dt_bin = dt * (1 - time_flagged) / archive.get_nbin()
-    bw_valid = bw * (1 - bw_flagged)
-    radiometer_noise = results["SEFD_mean"] / np.sqrt(npol * bw_valid.to(1 / u.s) * dt_bin)
-    flux_density_profile = snr_profile * radiometer_noise
-    S_peak = np.max(flux_density_profile)
-    S_mean = integrate.trapezoid(flux_density_profile) / archive.get_nbin()
-    logger.info(f"SEFD = {results['SEFD_mean'].to(u.Jy).to_string()}")
-    logger.info(f"Peak flux density = {S_peak.to(u.mJy).to_string()}")
-    logger.info(f"Mean flux density = {S_mean.to(u.mJy).to_string()}")
+    if archive is not None:
+        # Radiometer equation (Eq 3 of M+17)
+        dt_bin = dt * (1 - time_flagged) / archive.get_nbin()
+        bw_valid = bw * (1 - bw_flagged)
+        radiometer_noise = results["SEFD_mean"] / np.sqrt(npol * bw_valid.to(1 / u.s) * dt_bin)
+        flux_density_profile = snr_profile * radiometer_noise
+        S_peak = np.max(flux_density_profile)
+        S_mean = integrate.trapezoid(flux_density_profile) / archive.get_nbin()
+        logger.info(f"SEFD = {results['SEFD_mean'].to(u.Jy).to_string()}")
+        logger.info(f"Peak flux density = {S_peak.to(u.mJy).to_string()}")
+        logger.info(f"Mean flux density = {S_mean.to(u.mJy).to_string()}")
 
-    # Add to the inputs dictionary
-    inputs["beam_width"] = width.to(u.arcmin)
-
-    # Add to the results dictionary
-    results["noise_rms"] = radiometer_noise
-    results["S_peak"] = S_peak
-    results["S_mean"] = S_mean
+        # Add to the results dictionary
+        results["noise_rms"] = radiometer_noise
+        results["S_peak"] = S_peak
+        results["S_mean"] = S_mean
 
     # Dump the dictionaries to toml files
     mwa_vcs_fluxcal.qty_dict_to_toml(inputs, "inputs.toml")

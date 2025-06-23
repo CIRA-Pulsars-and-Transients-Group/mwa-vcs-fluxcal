@@ -8,23 +8,23 @@ authors = [
 ]
 license = { file = "LICENSE" }
 readme = { file = "README.md", content-type = "text/markdown" }
-requires-python = ">= 3.10"
+requires-python = ">=3.10"
 dependencies = [
     "astropy>=5.0",
-    "click>=8.0.0",
-    "cmasher>=1.9.2",
-    "healpy>=1.16.0",
-    "matplotlib>=3.5.0",
-    "mwa-hyperbeam>=0.9.0",
-    "mwalib>=1.8.4",
-    "numpy>=1.23.0,<2",
-    "requests>=2.32.3",
-    "ruff>=0.9.3",
-    "scikit-image>=0.25.1",
-    "scipy>=1.12.0",
-    "setuptools>=75.8.0",
-    "toml>=0.10.2",
-    "tqdm>=4.67.1",
+    "click",
+    "cmasher",
+    "healpy",
+    "matplotlib",
+    "mwa-hyperbeam>=0.9",
+    "mwalib>=1.8",
+    "numpy>=1.23,<2",
+    "requests",
+    "ruff",
+    "scikit-image",
+    "scipy",
+    "setuptools>=75.8,<81",
+    "toml",
+    "tqdm",
 ]
 
 [project.scripts]

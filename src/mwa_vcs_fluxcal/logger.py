@@ -39,7 +39,7 @@ def get_logger(name: str = __name__, log_level: int = logging.INFO) -> logging.L
         The custom logger.
     """
     logger = logging.getLogger(name)
-    formatter = logging.Formatter("[%(levelname)5s - %(asctime)s] %(message)s")
+    formatter = logging.Formatter("[%(levelname)7s - %(asctime)s] %(message)s")
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
     logger.setLevel(log_level)

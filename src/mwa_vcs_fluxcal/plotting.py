@@ -30,8 +30,9 @@ plt.rcParams["font.size"] = 12
 
 def plot_pulse_profile(
     profile: np.ndarray,
-    offpulse_win: np.ndarray,
-    offpulse_std: float,
+    noise_profile: np.ndarray | None,
+    offpulse_win: np.ndarray | None,
+    offpulse_std: float | None,
     ylabel: str = "Flux Density",
     title: str = None,
     savename: str = "pulse_profile.png",
@@ -44,11 +45,13 @@ def plot_pulse_profile(
     ----------
     profile : `np.ndarray`
         The pulse profile amplitudes.
-    offpulse_win : `np.ndarray`
-        The bin indices of the offpulse region.
-    offpulse_std : `float`
-        The standard deviation of the offpulse noise.
-    ylabel : `str`,
+    noise_profile : `np.ndarray`, optional
+        The profile from which the noise was computed. Default: None.
+    offpulse_win : `np.ndarray`, optional
+        The bin indices of the offpulse region. Default: None.
+    offpulse_std : `float`, optional
+        The standard deviation of the offpulse noise. Default: None.
+    ylabel : `str`, optional
         The y-axis label. Default: "Flux Density".
     title : `str`, optional
         A title for the plot. Default: None.
@@ -60,55 +63,60 @@ def plot_pulse_profile(
     if logger is None:
         logger = mwa_vcs_fluxcal.get_logger()
 
-    fig, ax = plt.subplots(figsize=(6, 5), dpi=300, tight_layout=True)
-
-    lw = 0.8
-
     num_bin = profile.shape[0]
+    bins = np.arange(num_bin) / (num_bin - 1)
 
-    bins = np.arange(num_bin) / num_bin
-    ax.plot(bins, profile, color="k", linewidth=lw)
-    xlims = [bins[0], bins[-1]]
+    fig, ax = plt.subplots(figsize=(8, 4), dpi=300, tight_layout=True)
+
+    lw = 0.6
+
+    ax.plot(
+        np.concatenate([bins, bins + 1]),
+        np.concatenate([profile, profile]),
+        color="k",
+        linewidth=lw,
+        zorder=1,
+    )
+
+    if noise_profile is not None:
+        ax.plot(
+            np.concatenate([bins, bins + 1]),
+            np.concatenate([noise_profile, noise_profile]),
+            color="tab:red",
+            linewidth=lw,
+            zorder=2,
+        )
+
+    xlims = [0, 2]
     ylims = ax.get_ylim()
 
-    # Shade the offpulse window
     if offpulse_win is not None:
+        # Shade the offpulse window
+        shade_args = dict(
+            color="tab:blue",
+            alpha=0.4,
+            zorder=0,
+        )
         offpulse_win = offpulse_win.astype(float) / (num_bin - 1)
         if offpulse_win[0] < offpulse_win[-1]:
-            ax.fill_betweenx(
-                ylims,
-                offpulse_win[0],
-                offpulse_win[-1],
-                color="tab:blue",
-                alpha=0.4,
-                zorder=0,
-                label="Offpulse region",
-            )
+            ax.fill_betweenx(ylims, offpulse_win[0], offpulse_win[-1], **shade_args)
+            ax.fill_betweenx(ylims, offpulse_win[0] + 1, offpulse_win[-1] + 1, **shade_args)
         else:
-            ax.fill_betweenx(
-                ylims,
-                offpulse_win[0],
-                xlims[-1],
-                color="tab:blue",
-                alpha=0.4,
-                zorder=0,
-                label="Offpulse region",
-            )
-            ax.fill_betweenx(
-                ylims, xlims[0], offpulse_win[-1], color="tab:blue", alpha=0.4, zorder=0
-            )
+            ax.fill_betweenx(ylims, 0, offpulse_win[-1], **shade_args)
+            ax.fill_betweenx(ylims, offpulse_win[0], offpulse_win[-1] + 1, **shade_args)
+            ax.fill_betweenx(ylims, offpulse_win[0] + 1, 2, **shade_args)
 
-    # Plot the noise baseline and shade the standard deviation
-    ax.axhline(0, linestyle="--", linewidth=lw, color="k")
-    ax.fill_between(
-        xlims,
-        -offpulse_std,
-        offpulse_std,
-        color="k",
-        alpha=0.2,
-        zorder=0,
-        # label=f"$\sigma={offpulse_std:.6f}$",
-    )
+    if offpulse_std is not None:
+        # Plot the noise baseline and shade the standard deviation
+        ax.axhline(0, linestyle="--", linewidth=lw, color="k")
+        ax.fill_between(
+            xlims,
+            -offpulse_std,
+            offpulse_std,
+            color="k",
+            alpha=0.2,
+            zorder=0,
+        )
 
     ax.set_xlim(xlims)
     ax.set_ylim(ylims)
@@ -118,8 +126,6 @@ def plot_pulse_profile(
     ax.set_ylabel(ylabel)
     if title is not None:
         ax.set_title(title)
-
-    ax.legend()
 
     logger.info(f"Saving plot file: {savename}")
     fig.savefig(savename)

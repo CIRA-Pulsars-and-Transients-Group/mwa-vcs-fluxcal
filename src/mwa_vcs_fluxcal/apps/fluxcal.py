@@ -31,6 +31,13 @@ from mwa_vcs_fluxcal import npol
     help="The logger verbosity level.",
 )
 @click.option("-m", "metafits", type=click.Path(exists=True), help="An MWA metafits file.")
+@click.option(
+    "-n",
+    "noise_archive",
+    type=click.Path(exists=True),
+    help="An archive file to use to compute the offpulse noise.",
+)
+@click.option("-b", "bscrunch", type=int, help="Bscrunch to this number of phase bins.")
 @click.option("-w", "windowsize", type=int, help="Window size to use to find the offpulse.")
 @click.option(
     "--fine_res", type=float, default=1, help="The resolution of the integral, in arcmin."
@@ -70,6 +77,8 @@ def main(
     archive: str,
     log_level: str,
     metafits: str,
+    noise_archive: str,
+    bscrunch: int,
     windowsize: int,
     fine_res: float,
     coarse_res: float,
@@ -88,8 +97,10 @@ def main(
     log_level_dict = mwa_vcs_fluxcal.get_log_levels()
     logger = mwa_vcs_fluxcal.get_logger(log_level=log_level_dict[log_level])
 
-    # Load, dedisperse, and baseline-subtract archive
-    archive = mwa_vcs_fluxcal.read_archive(archive, logger=logger)
+    # Load, dedisperse, and baseline-subtract detection archive
+    archive = mwa_vcs_fluxcal.read_archive(
+        archive, bscrunch=bscrunch, subtract_baseline=True, dedisperse=True, logger=logger
+    )
 
     # Get the Stokes I profile as a numpy array
     profile = mwa_vcs_fluxcal.get_profile_from_archive(archive)
@@ -100,16 +111,38 @@ def main(
     )
     offpulse = profile[op_mask]
 
+    if noise_archive is not None:
+        # Load, dedisperse, and baseline-subtract noise archive
+        noise_archive = mwa_vcs_fluxcal.read_archive(
+            noise_archive,
+            bscrunch=bscrunch,
+            subtract_baseline=True,
+            dedisperse=False,
+            logger=logger,
+        )
+
+        # Get the noise as a numpy array
+        noise = mwa_vcs_fluxcal.get_profile_from_archive(noise_archive)
+    else:
+        noise = offpulse
+
     # Correct the profile baseline
     profile -= np.mean(offpulse)
+    offpulse -= np.mean(offpulse)
 
     # Convert the profile to S/N
-    snr_profile = profile / np.std(offpulse)
+    snr_profile = profile / np.std(noise)
+
+    if noise_archive is not None:
+        noise_snr_profile = noise / np.std(noise)
+    else:
+        noise_snr_profile = None
 
     if plot_profile:
         mwa_vcs_fluxcal.plot_pulse_profile(
             snr_profile,
-            op_idx,
+            noise_profile=noise_snr_profile,
+            offpulse_win=op_idx,
             offpulse_std=1,
             ylabel="S/N",
             logger=logger,

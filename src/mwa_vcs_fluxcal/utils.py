@@ -13,7 +13,13 @@ import mwa_vcs_fluxcal
 __all__ = ["read_archive", "log_nan_zeros", "qty_dict_to_toml"]
 
 
-def read_archive(filename: str, logger: logging.Logger = None) -> psrchive.Archive:
+def read_archive(
+    filename: str,
+    bscrunch: int | None = None,
+    subtract_baseline: bool = True,
+    dedisperse: bool = True,
+    logger: logging.Logger | None = None,
+) -> psrchive.Archive:
     """Read a PSRCHIVE Archive, check that the data is in Stokes format,
     dedisperse, and subtract the baseline.
 
@@ -21,6 +27,12 @@ def read_archive(filename: str, logger: logging.Logger = None) -> psrchive.Archi
     ----------
     filename : `str`
         The path to the archive file to load.
+    bscrunch : `int`, optional
+        Bscrunch to this number of phase bins. Default: None.
+    subtract_baseline : `bool`, optional
+        Subtract the baseline. Default: True.
+    dedisperse : `bool`, optional
+        Apply channel delays to correct for dispersion. Default: True.
     logger : `logging.Logger`, optional
         A logger to use. Default: None.
 
@@ -45,18 +57,25 @@ def read_archive(filename: str, logger: logging.Logger = None) -> psrchive.Archi
         except RuntimeError:
             logger.error("Could not convert to Stokes.")
 
-    if not archive.get_dedispersed():
+    if not archive.get_dedispersed() and dedisperse:
         try:
             archive.dedisperse()
             logger.debug("Successfully dedispersed.")
         except RuntimeError:
             logger.error("Could not dedisperse.")
 
-    try:
-        archive.remove_baseline()
-        logger.debug("Successfully removed baseline.")
-    except RuntimeError:
-        logger.error("Could not remove baseline.")
+    if subtract_baseline:
+        try:
+            archive.remove_baseline()
+            logger.debug("Successfully removed baseline.")
+        except RuntimeError:
+            logger.error("Could not remove baseline.")
+
+    logger.info(f"Profile has {archive.get_nbin()} bins")
+    if type(bscrunch) is int:
+        if bscrunch < archive.get_nbin():
+            logger.info(f"Averaging to {bscrunch} bins")
+            archive.bscrunch_to_nbin(bscrunch)
 
     return archive
 

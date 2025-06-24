@@ -22,7 +22,7 @@ __all__ = [
 ]
 
 plt.rcParams["mathtext.fontset"] = "dejavuserif"
-plt.rcParams["text.usetex"] = True
+# plt.rcParams["text.usetex"] = True
 plt.rcParams["font.family"] = "serif"
 plt.rcParams["font.serif"] = "cm"
 plt.rcParams["font.size"] = 12

@@ -62,7 +62,7 @@ from mwa_vcs_fluxcal import npol
     type=float,
     default=30,
     show_default=True,
-    help="The resolution of the primary beam map, in arcmin",
+    help="The resolution of the primary beam map, in arcmin.",
 )
 @click.option(
     "--min_pbp",

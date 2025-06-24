@@ -30,26 +30,51 @@ from mwa_vcs_fluxcal import npol
     show_default=True,
     help="The logger verbosity level.",
 )
-@click.option("-m", "metafits", type=click.Path(exists=True), help="An MWA metafits file.")
 @click.option(
+    "-m", "--metafits", "metafits", type=click.Path(exists=True), help="An MWA metafits file."
+)
+@click.option(
+    "-t",
     "--target",
     type=str,
     help="The target's RA/Dec in hour/deg units in any format accepted by SkyCoord.",
 )
 @click.option(
+    "-s",
+    "--start_offset",
+    type=float,
+    help="The difference (in seconds) between the scheduled observation start time (the obs ID) "
+    + "and the start time of the data being calibrated. "
+    + "Will override the start time from the metafits, if provided.",
+)
+@click.option(
+    "-i",
+    "--int_time",
+    type=float,
+    help="The integration time (in seconds) of the data being calibrated. "
+    + "Will override the integration time from the metafits, if provided.",
+)
+@click.option(
     "-a",
+    "--archive",
     "archive",
     type=click.Path(exists=True),
-    help="An archive file to use to compute the pulse profile.",
+    help="An archive file to use to compute the pulse profile and get the start/end times "
+    + "of the data. Will override the metafits or user-provided start/end times, if provided.",
 )
 @click.option(
     "-n",
+    "--noise_archive",
     "noise_archive",
     type=click.Path(exists=True),
     help="An archive file to use to compute the offpulse noise.",
 )
-@click.option("-b", "bscrunch", type=int, help="Bscrunch to this number of phase bins.")
-@click.option("-w", "windowsize", type=int, help="Window size to use to find the offpulse.")
+@click.option(
+    "-b", "--bscrunch", "bscrunch", type=int, help="Bscrunch to this number of phase bins."
+)
+@click.option(
+    "-w", "--window_size", "window_size", type=int, help="Window size to use to find the offpulse."
+)
 @click.option(
     "--fine_res",
     type=float,
@@ -111,10 +136,12 @@ def main(
     log_level: str,
     metafits: str,
     target: str,
+    start_offset: float,
+    int_time: float,
     archive: str,
     noise_archive: str,
     bscrunch: int,
-    windowsize: int,
+    window_size: int,
     fine_res: float,
     coarse_res: float,
     min_pbp: float,
@@ -153,13 +180,13 @@ def main(
         snr_profile = mwa_vcs_fluxcal.get_snr_profile(
             archive,
             noise_archive=noise_archive,
-            windowsize=windowsize,
+            windowsize=window_size,
             plot_profile=plot_profile,
             logger=logger,
         )
     else:
         if target is None:
-            logger.info("No target coordinates provided.")
+            logger.info("No target coordinates provided. Exiting.")
             exit(0)
 
     # Cannot go any further without metadata
@@ -178,8 +205,23 @@ def main(
     bw = context.obs_bandwidth_hz / 1e6 * u.MHz
     t0 = Time(context.sched_start_mjd, format="mjd")
     t1 = Time(context.sched_end_mjd, format="mjd")
+    obs_dur = t1 - t0
 
-    if archive is not None:
+    if archive is None:
+        if start_offset is not None:
+            if start_offset > obs_dur.to(u.s).value:
+                logger.critical("The provided start time is longer than the observation duration.")
+                exit(1)
+            t0 = t0 + start_offset * u.s
+
+        if int_time is not None:
+            if start_offset + int_time > obs_dur.to(u.s).value:
+                logger.critical(
+                    "The provided integration time extends beyond the end of the observation."
+                )
+                exit(1)
+            t1 = t0 + int_time * u.s
+    else:
         fctr_ar = archive.get_centre_frequency() * u.MHz
         bw_ar = archive.get_bandwidth() * u.MHz
         t0_ar = Time(archive.get_first_Integration().get_start_time().in_days(), format="mjd")
@@ -224,7 +266,8 @@ def main(
     logger.info(f"Centre frequency = {fctr.to_string()}")
     logger.info(f"Bandwidth = {bw.to_string()}")
     logger.info(f"Integration time = {dt.to(u.s).to_string()}")
-    logger.info(f"Start MJD = {t0.to_string()}")
+    logger.info(f"Start MJD = {t0.mjd}")
+    logger.info(f"Start GPS = {t0.gps}")
     logger.info(f"Bandwidth flagged = {bw_flagged * 100:.2f}%")
     logger.info(f"Integration time flagged = {time_flagged * 100:.2f}%")
 

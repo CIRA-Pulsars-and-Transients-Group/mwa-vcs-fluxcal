@@ -141,3 +141,8 @@ using the `--bw_flagged` and `--time_flagged` options. For example, most SMART
 observations flag 4 out of 32 fine channels per coarse channel during
 calibration. Therefore the user would specify `--bw_flagged 0.125`. This number
 is used to modify the bandwidth used in the radiometer equation.
+
+# Credit
+If you use `mwa-vcs-fluxcal` in your work, please give credit by citing
+[Meyers et al. (2017)](https://ui.adsabs.harvard.edu/abs/2017ApJ...851...20M)
+and Lee et al. (2025; submitted to PASA).

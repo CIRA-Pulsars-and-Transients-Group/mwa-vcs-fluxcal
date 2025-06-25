@@ -7,12 +7,12 @@ import logging
 import numpy as np
 import psrchive
 import toml
-from astropy.coordinates import Angle, Latitude, Longitude
+from astropy.coordinates import Angle, Latitude, Longitude, SkyCoord
 from astropy.units import Quantity
 
 import mwa_vcs_fluxcal
 
-__all__ = ["read_archive", "log_nan_zeros", "qty_dict_to_toml"]
+__all__ = ["read_archive", "log_nan_zeros", "qty_dict_to_toml", "get_flux_density_uncertainty"]
 
 
 def read_archive(
@@ -117,3 +117,24 @@ def qty_dict_to_toml(qty_dict: dict, savename="qty_dict.toml") -> None:
             vals_dict[key] = [qty_dict[key], "unitless"]
     with open(savename, "w") as f:
         toml.dump(vals_dict, f, encoder=toml.TomlNumpyEncoder())
+
+
+def get_flux_density_uncertainty(pulsar_coords: SkyCoord) -> float:
+    """Get the relative uncertainty on the flux density, primarily accounting for the
+    uncertainty on Tsky and the coherency factor (see Lee et al. 2025).
+
+    Parameters
+    ----------
+    pulsar_coords : `SkyCoord`
+        The coordinates of the pulsar.
+
+    Returns
+    -------
+    relative_uncertainty : `float`
+        The relative uncertainty on the flux density.
+    """
+    pulsar_lat = pulsar_coords.galactic.l.deg
+    if abs(pulsar_lat) < 10:
+        return 0.4
+    else:
+        return 0.3

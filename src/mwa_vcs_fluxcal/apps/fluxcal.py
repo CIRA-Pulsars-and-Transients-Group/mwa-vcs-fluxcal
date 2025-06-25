@@ -372,11 +372,17 @@ def main(
         logger.info(f"Peak flux density = {S_peak.to(u.mJy).to_string()}")
         logger.info(f"Mean flux density = {S_mean.to(u.mJy).to_string()}")
 
+        rel_unc = mwa_vcs_fluxcal.get_flux_density_uncertainty(pulsar_coords)
+        logger.info(f"Estimated flux density uncertainty = {rel_unc * 100:.0f}%")
+
         # Add to the results dictionary
+        results["SEFD_mean"]
         results["SNR_peak"] = snr_peak
         results["noise_rms"] = radiometer_noise.to(u.mJy)
         results["S_peak"] = S_peak.to(u.mJy)
+        results["S_peak_unc"] = (S_peak * rel_unc).to(u.mJy)
         results["S_mean"] = S_mean.to(u.mJy)
+        results["S_mean_unc"] = (S_mean * rel_unc).to(u.mJy)
 
     # Dump the dictionaries to toml files
     mwa_vcs_fluxcal.qty_dict_to_toml(inputs, "inputs.toml")

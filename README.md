@@ -96,9 +96,10 @@ Options:
                                   flagged.  [default: 0.0; 0.0<=x<=1.0]
   --plot_profile                  Plot the pulse profile.
   --plot_trec                     Plot the receiver temperature.
-  --plot_pb                       Plot the primary beam.
-  --plot_images                   Plot visualisations of the integral
-                                  quantities.
+  --plot_pb                       Plot the primary beam in Alt/Az.
+  --plot_tab                      Plot the tied-array beam in Alt/Az.
+  --plot_tsky                     Plot sky temperature in Alt/Az.
+  --plot_integrals                Plot the integral quantities in Alt/Az.
   --plot_3d                       Plot the results in 3D (time,freq,data).
   --help                          Show this message and exit.
 ```
@@ -115,12 +116,11 @@ itself uses a finer resolution, i.e. 'fine pixels'. The user can specify the
 angular resolution using the options `--coarse_res` and `--fine_res`, where the
 coarse resolution must be cleanly divisible by the fine resolution (in arcmin).
 As a general rule, the fine resolution should be smaller than around 1/5 of the
-width of the tied-array beam. Also note that the figures made with `--plot_pb`
-and `--plot_images` will be shown with coarse pixels, where the value for each
-coarse pixel is the mean of the fine pixels computed within it. The
-`--max_pix_per_job` option specifies how many fine pixels will be computed
-in memory at a given time. It can be tweaked depending on the available CPU and
-memory resources.
+width of the tied-array beam. Also note that the sky plots will be shown with
+coarse pixels, where the value for each coarse pixel is the mean of the fine
+pixels computed within it. The `--max_pix_per_job` option specifies how many
+fine pixels will be computed in memory at a given time. It can be tweaked
+depending on the available CPU and memory resources.
 
 ## Notes on frequency and time steps
 The system temperature, gain, and thus the SEFD are all functions of frequency
@@ -139,7 +139,7 @@ downsampled after flagging at a higher resolution. Therefore, the user may
 provide the fraction of the bandwidth and integration time flagged in the data
 using the `--bw_flagged` and `--time_flagged` options. For example, most SMART
 observations flag 4 out of 32 fine channels per coarse channel during
-calibration. Therefore the user would specify `--bw_flagged 0.125`. This number
+calibration. Therefore, the user would specify `--bw_flagged 0.125`. This number
 is used to modify the bandwidth used in the radiometer equation.
 
 # Credit

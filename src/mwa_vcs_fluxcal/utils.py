@@ -107,7 +107,7 @@ def qty_dict_to_toml(qty_dict: dict, savename="qty_dict.toml") -> None:
     qty_dict : `dict`
         A dictionary where each entry is an astropy Quantity.
     savename : `str`, optional
-        The name of the file to write the TOML-encoded string to. Default: "qty_dict.png".
+        The name of the file to write the TOML-encoded string to. Default: "qty_dict.toml".
     """
     vals_dict = dict()
     for key in qty_dict:

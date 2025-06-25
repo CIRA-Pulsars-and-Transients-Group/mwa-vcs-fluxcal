@@ -7,6 +7,8 @@ import logging
 import numpy as np
 import psrchive
 import toml
+from astropy.coordinates import Angle, Latitude, Longitude
+from astropy.units import Quantity
 
 import mwa_vcs_fluxcal
 
@@ -109,6 +111,9 @@ def qty_dict_to_toml(qty_dict: dict, savename="qty_dict.toml") -> None:
     """
     vals_dict = dict()
     for key in qty_dict:
-        vals_dict[key] = [qty_dict[key].value, qty_dict[key].unit.to_string()]
+        if type(qty_dict[key]) in [Quantity, Angle, Longitude, Latitude]:
+            vals_dict[key] = [qty_dict[key].value, qty_dict[key].unit.to_string()]
+        else:
+            vals_dict[key] = [qty_dict[key], "unitless"]
     with open(savename, "w") as f:
         toml.dump(vals_dict, f, encoder=toml.TomlNumpyEncoder())

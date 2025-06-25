@@ -129,8 +129,10 @@ from mwa_vcs_fluxcal import npol
 )
 @click.option("--plot_profile", is_flag=True, help="Plot the pulse profile.")
 @click.option("--plot_trec", is_flag=True, help="Plot the receiver temperature.")
-@click.option("--plot_pb", is_flag=True, help="Plot the primary beam.")
-@click.option("--plot_images", is_flag=True, help="Plot visualisations of the integral quantities.")
+@click.option("--plot_pb", is_flag=True, help="Plot the primary beam in Alt/Az.")
+@click.option("--plot_tab", is_flag=True, help="Plot the tied-array beam in Alt/Az.")
+@click.option("--plot_tsky", is_flag=True, help="Plot sky temperature in Alt/Az.")
+@click.option("--plot_integrals", is_flag=True, help="Plot the integral quantities in Alt/Az.")
 @click.option("--plot_3d", is_flag=True, help="Plot the results in 3D (time,freq,data).")
 def main(
     log_level: str,
@@ -153,7 +155,9 @@ def main(
     plot_profile: bool,
     plot_trec: bool,
     plot_pb: bool,
-    plot_images: bool,
+    plot_tab: bool,
+    plot_tsky: bool,
+    plot_integrals: bool,
     plot_3d: bool,
 ) -> None:
     log_level_dict = mwa_vcs_fluxcal.get_log_levels()
@@ -320,7 +324,9 @@ def main(
         min_pbp,
         max_pix_per_job=max_pix_per_job,
         plot_pb=plot_pb,
-        plot_images=plot_images,
+        plot_tab=plot_tab,
+        plot_tsky=plot_tsky,
+        plot_integrals=plot_integrals,
         T_amb=T_amb,
         logger=logger,
     )
@@ -354,17 +360,20 @@ def main(
 
     if archive is not None:
         # Radiometer equation (Eq 3 of M+17)
+        snr_peak = np.max(snr_profile)
         dt_bin = dt * (1 - time_flagged) / archive.get_nbin()
         bw_valid = bw * (1 - bw_flagged)
         radiometer_noise = results["SEFD_mean"] / np.sqrt(npol * bw_valid.to(1 / u.s) * dt_bin)
         flux_density_profile = snr_profile * radiometer_noise
         S_peak = np.max(flux_density_profile)
         S_mean = integrate.trapezoid(flux_density_profile) / archive.get_nbin()
+        logger.info(f"Peak S/N = {snr_peak}")
         logger.info(f"SEFD = {results['SEFD_mean'].to(u.Jy).to_string()}")
         logger.info(f"Peak flux density = {S_peak.to(u.mJy).to_string()}")
         logger.info(f"Mean flux density = {S_mean.to(u.mJy).to_string()}")
 
         # Add to the results dictionary
+        results["SNR_peak"] = snr_peak
         results["noise_rms"] = radiometer_noise
         results["S_peak"] = S_peak
         results["S_mean"] = S_mean

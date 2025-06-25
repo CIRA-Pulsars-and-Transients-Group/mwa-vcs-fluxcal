@@ -30,12 +30,20 @@ def compute_sky_integrals(
     min_pbp: float,
     max_pix_per_job: int = 10**5,
     plot_pb: bool = False,
-    plot_images: bool = False,
+    plot_tab: bool = False,
+    plot_tsky: bool = False,
+    plot_integrals: bool = False,
     T_amb: u.Quantity = 295.55 * u.K,
     logger: logging.Logger | None = None,
 ) -> dict:
     if logger is None:
         logger = mwa_vcs_fluxcal.get_logger()
+
+    # Making these plots uses some extra memory
+    if plot_tab or plot_tsky or plot_integrals:
+        plot_images = True
+    else:
+        plot_images = False
 
     # If level is below INFO, disable progress bar as it will be broken up by
     # verbose log statements. If it is above INFO, also disable it.
@@ -320,50 +328,53 @@ def compute_sky_integrals(
 
         if plot_images:
             for tt in range(ntime):
-                mwa_vcs_fluxcal.plot_sky_images(
-                    az_grid_coarse,
-                    za_grid_coarse,
-                    [
-                        mwa_vcs_fluxcal.log_nan_zeros(afp_coarse[tt]),
-                        mwa_vcs_fluxcal.log_nan_zeros(pbp_coarse),
-                        mwa_vcs_fluxcal.log_nan_zeros(tabp_coarse[tt]),
-                    ],
-                    [
-                        "$\log_{10}[|f(\\theta,\phi)|^2]$",
-                        "$\log_{10}[|D(\\theta,\phi)|^2]$",
-                        "$\log_{10}[B_\mathrm{array}(\\theta,\phi)]$",
-                    ],
-                    pulsar_coords_altaz[tt],
-                    savename=f"log_beam_images_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
-                    logger=logger,
-                )
-                mwa_vcs_fluxcal.plot_sky_images(
-                    az_grid_coarse,
-                    za_grid_coarse,
-                    [
-                        mwa_vcs_fluxcal.log_nan_zeros(int_afp_coarse[tt]),
-                        mwa_vcs_fluxcal.log_nan_zeros(int_B_T_coarse[tt]),
-                        mwa_vcs_fluxcal.log_nan_zeros(int_B_coarse[tt]),
-                    ],
-                    [
-                        "$\log_{10}[|f(\\theta,\phi)|^2\,\mathrm{d}\Omega]$",
-                        "$\log_{10}[B_\mathrm{array}(\\theta,\phi) "
-                        + "T_\mathrm{sky}(\\theta,\phi)\,\mathrm{d}\Omega]$",
-                        "$\log_{10}[B_\mathrm{array}(\\theta,\phi)\,\mathrm{d}\Omega]$",
-                    ],
-                    pulsar_coords_altaz[tt],
-                    savename=f"log_integral_images_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
-                    logger=logger,
-                )
-                mwa_vcs_fluxcal.plot_sky_images(
-                    az_grid_coarse,
-                    za_grid_coarse,
-                    [mwa_vcs_fluxcal.log_nan_zeros(tsky_coarse[tt])],
-                    ["$\mathrm{log}_{10}\,T_\mathrm{sky}$ [K]"],
-                    pulsar_coords_altaz[tt],
-                    savename=f"log_tsky_image_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
-                    logger=logger,
-                )
+                if plot_tab:
+                    mwa_vcs_fluxcal.plot_sky_images(
+                        az_grid_coarse,
+                        za_grid_coarse,
+                        [
+                            mwa_vcs_fluxcal.log_nan_zeros(afp_coarse[tt]),
+                            mwa_vcs_fluxcal.log_nan_zeros(pbp_coarse),
+                            mwa_vcs_fluxcal.log_nan_zeros(tabp_coarse[tt]),
+                        ],
+                        [
+                            "$\log_{10}[|f(\\theta,\phi)|^2]$",
+                            "$\log_{10}[|D(\\theta,\phi)|^2]$",
+                            "$\log_{10}[B_\mathrm{array}(\\theta,\phi)]$",
+                        ],
+                        pulsar_coords_altaz[tt],
+                        savename=f"log_beam_images_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
+                        logger=logger,
+                    )
+                if plot_integrals:
+                    mwa_vcs_fluxcal.plot_sky_images(
+                        az_grid_coarse,
+                        za_grid_coarse,
+                        [
+                            mwa_vcs_fluxcal.log_nan_zeros(int_afp_coarse[tt]),
+                            mwa_vcs_fluxcal.log_nan_zeros(int_B_T_coarse[tt]),
+                            mwa_vcs_fluxcal.log_nan_zeros(int_B_coarse[tt]),
+                        ],
+                        [
+                            "$\log_{10}[|f(\\theta,\phi)|^2\,\mathrm{d}\Omega]$",
+                            "$\log_{10}[B_\mathrm{array}(\\theta,\phi) "
+                            + "T_\mathrm{sky}(\\theta,\phi)\,\mathrm{d}\Omega]$",
+                            "$\log_{10}[B_\mathrm{array}(\\theta,\phi)\,\mathrm{d}\Omega]$",
+                        ],
+                        pulsar_coords_altaz[tt],
+                        savename=f"log_integral_images_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
+                        logger=logger,
+                    )
+                if plot_tsky:
+                    mwa_vcs_fluxcal.plot_sky_images(
+                        az_grid_coarse,
+                        za_grid_coarse,
+                        [mwa_vcs_fluxcal.log_nan_zeros(tsky_coarse[tt])],
+                        ["$\mathrm{log}_{10}\,T_\mathrm{sky}$ [K]"],
+                        pulsar_coords_altaz[tt],
+                        savename=f"log_tsky_image_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
+                        logger=logger,
+                    )
 
         # Antenna temperature (Eq 13 of M+17)
         # The integrals have units of sr that cancel out

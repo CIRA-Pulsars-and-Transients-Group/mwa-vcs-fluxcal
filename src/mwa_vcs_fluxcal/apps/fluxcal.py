@@ -374,9 +374,9 @@ def main(
 
         # Add to the results dictionary
         results["SNR_peak"] = snr_peak
-        results["noise_rms"] = radiometer_noise
-        results["S_peak"] = S_peak
-        results["S_mean"] = S_mean
+        results["noise_rms"] = radiometer_noise.to(u.mJy)
+        results["S_peak"] = S_peak.to(u.mJy)
+        results["S_mean"] = S_mean.to(u.mJy)
 
     # Dump the dictionaries to toml files
     mwa_vcs_fluxcal.qty_dict_to_toml(inputs, "inputs.toml")

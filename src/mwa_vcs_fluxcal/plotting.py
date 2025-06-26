@@ -21,11 +21,12 @@ __all__ = [
     "plot_3d_result",
 ]
 
-plt.rcParams["mathtext.fontset"] = "dejavuserif"
-# plt.rcParams["text.usetex"] = True
-plt.rcParams["font.family"] = "serif"
-plt.rcParams["font.serif"] = "cm"
+
 plt.rcParams["font.size"] = 12
+plt.rcParams["mathtext.fontset"] = "dejavuserif"
+plt.rcParams["font.family"] = "serif"
+# plt.rcParams["text.usetex"] = True
+# plt.rcParams["font.serif"] = "cm"
 
 
 def plot_pulse_profile(

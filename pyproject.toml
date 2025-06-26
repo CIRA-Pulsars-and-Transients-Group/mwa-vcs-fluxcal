@@ -22,7 +22,6 @@ dependencies = [
     "ruff",
     "scikit-image",
     "scipy",
-    "setuptools>=75.8,<81",
     "toml",
     "tqdm",
 ]
@@ -31,7 +30,7 @@ dependencies = [
 fluxcal = "mwa_vcs_fluxcal.apps.fluxcal:main"
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=75.8,<81"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-data]

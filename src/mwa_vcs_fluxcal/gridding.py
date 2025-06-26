@@ -14,13 +14,6 @@ from skimage import measure
 __all__ = ["tesellate_primary_beam", "upsample_blocks"]
 
 
-plt.rcParams["font.size"] = 12
-plt.rcParams["mathtext.fontset"] = "dejavuserif"
-plt.rcParams["font.family"] = "serif"
-# plt.rcParams["text.usetex"] = True
-# plt.rcParams["font.serif"] = "cm"
-
-
 def tesellate_primary_beam(
     az: np.ndarray[float],
     za: np.ndarray[float],

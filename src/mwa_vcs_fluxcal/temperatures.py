@@ -2,6 +2,7 @@
 # Licensed under the Academic Free License version 3.0 #
 ########################################################
 
+import importlib.resources
 import logging
 
 import astropy.units as u
@@ -15,7 +16,7 @@ from mwalib import MetafitsContext
 from scipy.interpolate import CubicSpline
 
 import mwa_vcs_fluxcal
-from mwa_vcs_fluxcal import RCVR_TEMP_FILE, SKY_TEMP_MAP_FILE
+from mwa_vcs_fluxcal import RCVR_TEMP_FILENAME, SKY_TEMP_MAP_FILENAME
 
 __all__ = ["splineSkyTempAtCoord", "getSkyTempAtCoords", "splineRecieverTemp", "getAmbientTemp"]
 
@@ -47,7 +48,9 @@ def splineSkyTempAtCoord(
         logger = mwa_vcs_fluxcal.get_logger()
 
     # read the sky temperature map
-    sky_temp_map = read_map(SKY_TEMP_MAP_FILE)
+    ref = importlib.resources.files("mwa_vcs_fluxcal") / SKY_TEMP_MAP_FILENAME
+    with importlib.resources.as_file(ref) as path:
+        sky_temp_map = read_map(path)
 
     # convert ra, dec to Galactic coordinate
     logger.debug("Converting pointing coordinate to Galactic frame")
@@ -95,7 +98,9 @@ def getSkyTempAtCoords(
         logger = mwa_vcs_fluxcal.get_logger()
 
     # read the sky temperature map
-    sky_temp_map = read_map(SKY_TEMP_MAP_FILE)
+    ref = importlib.resources.files("mwa_vcs_fluxcal") / SKY_TEMP_MAP_FILENAME
+    with importlib.resources.as_file(ref) as path:
+        sky_temp_map = read_map(path)
 
     # convert ra, dec to Galactic coordinate
     logger.debug("Converting pointing coordinate to Galactic frame")
@@ -124,7 +129,9 @@ def splineRecieverTemp() -> CubicSpline:
     :rtype: CubicSpline
     """
     # The frequency data column is in MHz, and the rcvr temperatue column in Kelvin
-    tab = Table.read(RCVR_TEMP_FILE, format="csv")
+    ref = importlib.resources.files("mwa_vcs_fluxcal") / RCVR_TEMP_FILENAME
+    with importlib.resources.as_file(ref) as path:
+        tab = Table.read(path, format="csv")
     trcvr_spline = CubicSpline(tab["freq"].value, tab["trec"].value)
 
     return trcvr_spline

@@ -89,7 +89,7 @@ def get_snr_profile(
     windowsize: int | None = None,
     plot_profile: bool = False,
     logger: logging.Logger | None = None,
-) -> np.ndarray:
+) -> tuple[np.ndarray, np.ndarray]:
     """Get the S/N profile from a PSRCHIVE archive.
 
     Parameters
@@ -107,8 +107,10 @@ def get_snr_profile(
 
     Returns
     -------
-    snr_profile: `np.ndarray`
+    snr_profile : `np.ndarray`
         The integrated pulse profile in S/N units.
+    std_noise : `np.ndarray`
+        The standard deviation of the offpulse noise in the uncalibrated profile.
     """
     if logger is None:
         logger = mwa_vcs_fluxcal.get_logger()
@@ -133,7 +135,8 @@ def get_snr_profile(
     offpulse -= np.mean(offpulse)
 
     # Convert the profile to S/N
-    snr_profile = profile / np.std(noise)
+    std_noise = np.std(noise)
+    snr_profile = profile / std_noise
 
     if noise_archive is not None:
         noise_snr_profile = noise / np.std(noise)
@@ -150,4 +153,4 @@ def get_snr_profile(
             logger=logger,
         )
 
-    return snr_profile
+    return snr_profile, std_noise

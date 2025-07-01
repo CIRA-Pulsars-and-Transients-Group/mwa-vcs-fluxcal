@@ -181,7 +181,7 @@ def main(
                 logger=logger,
             )
 
-        snr_profile = mwa_vcs_fluxcal.get_snr_profile(
+        snr_profile, std_uncal_noise = mwa_vcs_fluxcal.get_snr_profile(
             archive,
             noise_archive=noise_archive,
             windowsize=window_size,
@@ -365,6 +365,7 @@ def main(
         bw_valid = bw * (1 - bw_flagged)
         radiometer_noise = results["SEFD_mean"] / np.sqrt(npol * bw_valid.to(1 / u.s) * dt_bin)
         flux_density_profile = snr_profile * radiometer_noise
+        flux_scale = radiometer_noise / std_uncal_noise
         S_peak = np.max(flux_density_profile)
         S_mean = integrate.trapezoid(flux_density_profile) / archive.get_nbin()
         logger.info(f"Peak S/N = {snr_peak}")
@@ -379,6 +380,7 @@ def main(
         results["SEFD_mean"]
         results["SNR_peak"] = snr_peak
         results["noise_rms"] = radiometer_noise.to(u.mJy)
+        results["flux_scale"] = flux_scale.to(u.mJy)
         results["S_peak"] = S_peak.to(u.mJy)
         results["S_peak_unc"] = (S_peak * rel_unc).to(u.mJy)
         results["S_mean"] = S_mean.to(u.mJy)

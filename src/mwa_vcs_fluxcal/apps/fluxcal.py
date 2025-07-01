@@ -22,6 +22,8 @@ from mwa_vcs_fluxcal import npol
 
 
 @click.command()
+@click.help_option("-h", "--help")
+@click.version_option(mwa_vcs_fluxcal.__version__, "-V", "--version")
 @click.option(
     "-L",
     "log_level",

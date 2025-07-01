@@ -57,7 +57,9 @@ fluxcal --help
 Usage: fluxcal [OPTIONS]
 
 Options:
-  -L [DEBUG|INFO|ERROR|CRITICAL]  The logger verbosity level.  [default: INFO]
+  -h, --help                      Show this message and exit.
+  -V, --version                   Show the version and exit.
+  -L [debug|info|error|critical]  The logger verbosity level.  [default: INFO]
   -m, --metafits PATH             An MWA metafits file.
   -t, --target TEXT               The target's RA/Dec in hour/deg units in any
                                   format accepted by SkyCoord.
@@ -101,7 +103,6 @@ Options:
   --plot_tsky                     Plot sky temperature in Alt/Az.
   --plot_integrals                Plot the integral quantities in Alt/Az.
   --plot_3d                       Plot the results in 3D (time,freq,data).
-  --help                          Show this message and exit.
 ```
 
 ## Notes on pixel sizes

@@ -22,7 +22,7 @@ dependencies = [
     "ruff",
     "scikit-image",
     "scipy",
-    "toml",
+    "rtoml",
     "tqdm",
 ]
 

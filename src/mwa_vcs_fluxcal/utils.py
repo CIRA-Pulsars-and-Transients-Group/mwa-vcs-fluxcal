@@ -6,7 +6,7 @@ import logging
 
 import numpy as np
 import psrchive
-import toml
+import rtoml
 from astropy.coordinates import Angle, Latitude, Longitude, SkyCoord
 from astropy.units import Quantity
 
@@ -115,8 +115,12 @@ def qty_dict_to_toml(qty_dict: dict, savename="qty_dict.toml") -> None:
             vals_dict[key] = [qty_dict[key].value, qty_dict[key].unit.to_string()]
         else:
             vals_dict[key] = [qty_dict[key], "unitless"]
+        if type(vals_dict[key][0]) is np.ndarray:
+            vals_dict[key][0] = vals_dict[key][0].tolist()
+        else:
+            vals_dict[key][0] = float(vals_dict[key][0])
     with open(savename, "w") as f:
-        toml.dump(vals_dict, f, encoder=toml.TomlNumpyEncoder())
+        rtoml.dump(vals_dict, f)
 
 
 def get_flux_density_uncertainty(pulsar_coords: SkyCoord) -> float:

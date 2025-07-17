@@ -62,7 +62,7 @@ def compute_sky_integrals(
         Times=eval_offsets.to(u.s),
         Freqs=eval_freqs.to(u.MHz),
         Pulsar_Az=pulsar_coords_altaz.az.to(u.deg),
-        Pulsar_ZA=pulsar_coords_altaz.alt.to(u.deg),
+        Pulsar_Alt=pulsar_coords_altaz.alt.to(u.deg),
         Angular_resolution=fine_grid_res.to(u.arcmin),
         T_amb=T_amb.to(u.K),
         T_rec=u.Quantity(np.empty((nfreq), dtype=np.float64), u.K),

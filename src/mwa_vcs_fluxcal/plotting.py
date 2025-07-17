@@ -10,8 +10,6 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from scipy.interpolate import CubicSpline, RegularGridInterpolator
 
-import mwa_vcs_fluxcal
-
 __all__ = [
     "plot_pulse_profile",
     "plot_trcvr_vs_freq",

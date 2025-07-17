@@ -11,7 +11,6 @@ from mwalib import MetafitsContext, Pol
 from scipy.spatial import ConvexHull
 from scipy.spatial.distance import cdist
 
-import mwa_vcs_fluxcal
 from mwa_vcs_fluxcal import MWA_CENTRE_CABLE_LEN
 
 __all__ = [

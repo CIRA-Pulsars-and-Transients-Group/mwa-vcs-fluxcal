@@ -12,9 +12,13 @@ import rtoml
 from astropy.coordinates import Angle, Latitude, Longitude, SkyCoord
 from astropy.units import Quantity
 
-import mwa_vcs_fluxcal
-
-__all__ = ["read_archive", "log_nan_zeros", "qty_dict_to_toml", "get_flux_density_uncertainty"]
+__all__ = [
+    "read_archive",
+    "log_nan_zeros",
+    "pythonise",
+    "qty_dict_to_toml",
+    "get_flux_density_uncertainty",
+]
 
 logger = logging.getLogger(__name__)
 

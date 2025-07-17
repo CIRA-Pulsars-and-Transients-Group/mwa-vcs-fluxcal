@@ -332,7 +332,7 @@ def main(
     # Compute the sky integrals required to get T_sys and gain
     # The progress bar will only be shown if stdout is attached to a TTY
     with enlighten.get_manager() as manager:
-        inputs, results = mwa_vcs_fluxcal.compute_sky_integrals(
+        results = mwa_vcs_fluxcal.compute_sky_integrals(
             context,
             t0,
             eval_offsets,
@@ -394,17 +394,24 @@ def main(
         logger.info(f"Estimated flux density uncertainty = {rel_unc * 100:.0f}%")
 
         # Add to the results dictionary
-        results["SEFD_mean"]
         results["SNR_peak"] = snr_peak
-        results["noise_rms"] = radiometer_noise.to(u.mJy)
-        results["flux_scale"] = flux_scale.to(u.mJy)
+        results["Noise_rms"] = radiometer_noise.to(u.mJy)
+        results["Flux_scale"] = flux_scale.to(u.mJy)
         results["S_peak"] = S_peak.to(u.mJy)
         results["S_peak_unc"] = (S_peak * rel_unc).to(u.mJy)
         results["S_mean"] = S_mean.to(u.mJy)
         results["S_mean_unc"] = (S_mean * rel_unc).to(u.mJy)
 
-    # Dump the dictionaries to toml files
-    mwa_vcs_fluxcal.qty_dict_to_toml(inputs, f"{source}_fluxcal_inputs.toml")
+        # Add these to the beginning of the dictionary
+        pre_dict = dict(
+            Source=source,
+            Nbin=archive.get_nbin(),
+            Time_frac_flagged=time_flagged,
+            BW_frac_flagged=bw_flagged,
+        )
+        results = dict(pre_dict, **results)
+
+    # Dump the dictionary into a toml file
     mwa_vcs_fluxcal.qty_dict_to_toml(results, f"{source}_fluxcal_results.toml")
 
 

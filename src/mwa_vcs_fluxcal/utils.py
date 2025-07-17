@@ -109,6 +109,9 @@ def qty_dict_to_toml(qty_dict: dict, savename="qty_dict.toml") -> None:
     for key in qty_dict:
         if type(qty_dict[key]) in [Quantity, Angle, Longitude, Latitude]:
             vals_dict[key] = [qty_dict[key].value, qty_dict[key].unit.to_string()]
+        elif type(qty_dict[key]) is str:
+            vals_dict[key] = [qty_dict[key], "string"]
+            continue
         else:
             vals_dict[key] = [qty_dict[key], "unitless"]
         if type(vals_dict[key][0]) is np.ndarray:

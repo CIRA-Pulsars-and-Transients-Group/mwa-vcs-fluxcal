@@ -39,7 +39,7 @@ def compute_sky_integrals(
     T_amb: u.Quantity = 295.55 * u.K,
     file_prefix: str = "fluxcal",
     pbar_manager: enlighten.Manager | None = None,
-) -> dict:
+) -> dict[str, u.Quantity]:
     # Making these plots uses some extra memory
     if plot_tab or plot_tsky or plot_integrals:
         plot_images = True
@@ -57,17 +57,13 @@ def compute_sky_integrals(
     # Compute the tile positions from the metadata
     tile_positions = mwa_vcs_fluxcal.extractWorkingTilePositions(context)
 
-    # Dictionary to store the inputs to the integral calculation
-    inputs = dict(
-        t=eval_offsets.to(u.s),
-        f=eval_freqs.to(u.MHz),
-        pulsar_az=pulsar_coords_altaz.az.to(u.deg),
-        pulsar_za=pulsar_coords_altaz.alt.to(u.deg),
-        integral_resolution=fine_grid_res.to(u.arcmin),
-    )
-
-    # Dictionary to store the results of the integrals
+    # Dictionary to store the inputs and outputs of the integral calculation
     results = dict(
+        Times=eval_offsets.to(u.s),
+        Freqs=eval_freqs.to(u.MHz),
+        Pulsar_Az=pulsar_coords_altaz.az.to(u.deg),
+        Pulsar_ZA=pulsar_coords_altaz.alt.to(u.deg),
+        Angular_resolution=fine_grid_res.to(u.arcmin),
         T_amb=T_amb.to(u.K),
         T_rec=u.Quantity(np.empty((nfreq), dtype=np.float64), u.K),
         T_ant=u.Quantity(np.empty((ntime, nfreq), dtype=np.float64), u.K),
@@ -408,4 +404,4 @@ def compute_sky_integrals(
 
     results["SEFD_mean"] = np.mean(results["SEFD"])
 
-    return inputs, results
+    return results

@@ -14,7 +14,7 @@ import mwa_vcs_fluxcal
 
 __all__ = [
     "plot_pulse_profile",
-    "plot_trcvr_vc_freq",
+    "plot_trcvr_vs_freq",
     "plot_primary_beam",
     "plot_tied_array_beam",
     "plot_sky_images",
@@ -123,7 +123,7 @@ def plot_pulse_profile(
     plt.close()
 
 
-def plot_trcvr_vc_freq(
+def plot_trcvr_vs_freq(
     trcvr_spline: CubicSpline, fctr: float, df: float, savename: str = "trcvr_vs_freq.png"
 ) -> None:
     """Plot the receiver temperature as a function of frequency.

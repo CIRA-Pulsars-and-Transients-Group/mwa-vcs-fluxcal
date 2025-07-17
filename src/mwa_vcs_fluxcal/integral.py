@@ -37,6 +37,7 @@ def compute_sky_integrals(
     plot_tsky: bool = False,
     plot_integrals: bool = False,
     T_amb: u.Quantity = 295.55 * u.K,
+    file_prefix: str = "fluxcal",
 ) -> dict:
     # Making these plots uses some extra memory
     if plot_tab or plot_tsky or plot_integrals:
@@ -143,7 +144,7 @@ def compute_sky_integrals(
                 plevel=min_pbp,
                 plot=plot_pb,
                 pulsar_coords=pulsar_coords_altaz,
-                savename=f"primary_beam_masked_{eval_freqs[ii].to(u.MHz).value:.0f}MHz.png",
+                savename=f"{file_prefix}_primary_beam_masked_{eval_freqs[ii].to(u.MHz).value:.0f}MHz.png",
             )
         else:
             pb_mask = np.full(shape=grid_pbp.shape, fill_value=True, dtype=bool)
@@ -337,7 +338,7 @@ def compute_sky_integrals(
                             "$\log_{10}[B_\mathrm{array}(\\theta,\phi)]$",
                         ],
                         pulsar_coords_altaz[tt],
-                        savename=f"log_beam_images_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
+                        savename=f"{file_prefix}_log_beam_images_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
                     )
                 if plot_integrals:
                     mwa_vcs_fluxcal.plot_sky_images(
@@ -355,7 +356,7 @@ def compute_sky_integrals(
                             "$\log_{10}[B_\mathrm{array}(\\theta,\phi)\,\mathrm{d}\Omega]$",
                         ],
                         pulsar_coords_altaz[tt],
-                        savename=f"log_integral_images_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
+                        savename=f"{file_prefix}_log_integral_images_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
                     )
                 if plot_tsky:
                     mwa_vcs_fluxcal.plot_sky_images(
@@ -364,7 +365,7 @@ def compute_sky_integrals(
                         [mwa_vcs_fluxcal.log_nan_zeros(tsky_coarse[tt])],
                         ["$\mathrm{log}_{10}\,T_\mathrm{sky}$ [K]"],
                         pulsar_coords_altaz[tt],
-                        savename=f"log_tsky_image_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
+                        savename=f"{file_prefix}_log_tsky_image_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
                     )
 
         # Antenna temperature (Eq 13 of M+17)

@@ -82,7 +82,7 @@ def get_snr_profile(
     archive: psrchive.Archive,
     noise_archive: str | None = None,
     windowsize: int | None = None,
-    plot_profile: bool = False,
+    savename: str | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Get the S/N profile from a PSRCHIVE archive.
 
@@ -94,8 +94,8 @@ def get_snr_profile(
         An archive of a fully dispersed observation. Default: `None`.
     windowsize : `int`, optional
         The window size (in bins) to use to find the offpulse. Default: `None`.
-    plot_profile : `bool`, optional
-        Plot the pulse profile. Default: `False`.
+    savename : `str | None`, optional
+        If specified, will save a plot of the pulse profile with this name. Default: `None`.
 
     Returns
     -------
@@ -130,13 +130,14 @@ def get_snr_profile(
     else:
         noise_snr_profile = None
 
-    if plot_profile:
+    if savename:
         mwa_vcs_fluxcal.plot_pulse_profile(
             snr_profile,
             noise_profile=noise_snr_profile,
             offpulse_win=op_idx,
             offpulse_std=1,
             ylabel="S/N",
+            savename=savename,
         )
 
     return snr_profile, std_noise

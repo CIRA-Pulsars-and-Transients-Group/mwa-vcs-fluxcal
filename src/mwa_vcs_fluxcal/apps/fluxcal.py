@@ -182,8 +182,16 @@ def main(
                 noise_archive, bscrunch=bscrunch, subtract_baseline=True, dedisperse=False
             )
 
+        if plot_profile:
+            profile_savename = f"{archive.get_source()}_pulse_profile.png"
+        else:
+            profile_savename = None
+
         snr_profile, std_uncal_noise = mwa_vcs_fluxcal.get_snr_profile(
-            archive, noise_archive=noise_archive, windowsize=window_size, plot_profile=plot_profile
+            archive,
+            noise_archive=noise_archive,
+            windowsize=window_size,
+            savename=profile_savename,
         )
     else:
         if target is None:
@@ -302,10 +310,23 @@ def main(
 
     logger.info(f"Target RA/Dec = {pulsar_coords.to_string(style='hmsdms')}")
 
+    # Get the source name, or otherwise its coordinates, to label the output files
+    if archive is not None:
+        source = archive.get_source()
+    else:
+        ra_str = pulsar_coords.ra.to_string(u.hour)
+        dec_str = pulsar_coords.dec.to_string(u.degree, alwayssign=True)
+        source = f"{ra_str}_{dec_str}"
+
     if plot_trec:
         # Plot the receiver temperature vs frequency
         T_rec_spline = mwa_vcs_fluxcal.splineRecieverTemp()
-        mwa_vcs_fluxcal.plot_trcvr_vc_freq(T_rec_spline, fctr.to(u.MHz).value, bw.to(u.MHz).value)
+        mwa_vcs_fluxcal.plot_trcvr_vs_freq(
+            T_rec_spline,
+            fctr.to(u.MHz).value,
+            bw.to(u.MHz).value,
+            savename=f"{source}_trcvr_vs_freq.png",
+        )
 
     # Compute the sky integrals required to get T_sys and gain
     inputs, results = mwa_vcs_fluxcal.compute_sky_integrals(
@@ -323,6 +344,7 @@ def main(
         plot_tsky=plot_tsky,
         plot_integrals=plot_integrals,
         T_amb=T_amb,
+        file_prefix=source,
     )
 
     if plot_3d and nfreq >= 4 and ntime >= 4:
@@ -332,21 +354,21 @@ def main(
             eval_freqs.to(u.MHz).value,
             results["T_sys"].value,
             zlabel="$T_\mathrm{sys}$ [K]",
-            savename="3d_tsys.png",
+            savename=f"{source}_3d_tsys.png",
         )
         mwa_vcs_fluxcal.plot_3d_result(
             eval_offsets.to(u.s).value,
             eval_freqs.to(u.MHz).value,
             results["G"].value,
             zlabel="Gain [K/Jy]",
-            savename="3d_gain.png",
+            savename=f"{source}_3d_gain.png",
         )
         mwa_vcs_fluxcal.plot_3d_result(
             eval_offsets.to(u.s).value,
             eval_freqs.to(u.MHz).value,
             results["SEFD"].value,
             zlabel="SEFD [Jy]",
-            savename="3d_sefd.png",
+            savename=f"{source}_3d_sefd.png",
         )
 
     if archive is not None:
@@ -378,8 +400,8 @@ def main(
         results["S_mean_unc"] = (S_mean * rel_unc).to(u.mJy)
 
     # Dump the dictionaries to toml files
-    mwa_vcs_fluxcal.qty_dict_to_toml(inputs, "inputs.toml")
-    mwa_vcs_fluxcal.qty_dict_to_toml(results, "results.toml")
+    mwa_vcs_fluxcal.qty_dict_to_toml(inputs, f"{source}_fluxcal_inputs.toml")
+    mwa_vcs_fluxcal.qty_dict_to_toml(results, f"{source}_fluxcal_results.toml")
 
 
 if __name__ == "__main__":

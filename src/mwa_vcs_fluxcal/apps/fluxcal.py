@@ -12,6 +12,7 @@ import logging
 
 import astropy.units as u
 import click
+import enlighten
 import mwalib
 import numpy as np
 from astropy.constants import c
@@ -329,23 +330,26 @@ def main(
         )
 
     # Compute the sky integrals required to get T_sys and gain
-    inputs, results = mwa_vcs_fluxcal.compute_sky_integrals(
-        context,
-        t0,
-        eval_offsets,
-        eval_freqs,
-        pulsar_coords,
-        fine_grid_res,
-        coarse_grid_res,
-        min_pbp,
-        max_pix_per_job=max_pix_per_job,
-        plot_pb=plot_pb,
-        plot_tab=plot_tab,
-        plot_tsky=plot_tsky,
-        plot_integrals=plot_integrals,
-        T_amb=T_amb,
-        file_prefix=source,
-    )
+    # The progress bar will only be shown if stdout is attached to a TTY
+    with enlighten.get_manager() as manager:
+        inputs, results = mwa_vcs_fluxcal.compute_sky_integrals(
+            context,
+            t0,
+            eval_offsets,
+            eval_freqs,
+            pulsar_coords,
+            fine_grid_res,
+            coarse_grid_res,
+            min_pbp,
+            max_pix_per_job=max_pix_per_job,
+            plot_pb=plot_pb,
+            plot_tab=plot_tab,
+            plot_tsky=plot_tsky,
+            plot_integrals=plot_integrals,
+            T_amb=T_amb,
+            file_prefix=source,
+            pbar_manager=manager,
+        )
 
     if plot_3d and nfreq >= 4 and ntime >= 4:
         # Fit a 2D spline to show the freq/time scaling of T_sys, gain, and SEFD

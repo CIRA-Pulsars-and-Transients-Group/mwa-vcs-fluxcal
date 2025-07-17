@@ -6,12 +6,12 @@ import logging
 from time import perf_counter as pc
 
 import astropy.units as u
+import enlighten
 import numpy as np
 from astropy.constants import c, k_B
 from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.time import Time
 from mwalib import MetafitsContext
-from tqdm import tqdm
 
 import mwa_vcs_fluxcal
 from mwa_vcs_fluxcal import MWA_LOCATION, SI_TO_JY, eta, fc
@@ -38,18 +38,13 @@ def compute_sky_integrals(
     plot_integrals: bool = False,
     T_amb: u.Quantity = 295.55 * u.K,
     file_prefix: str = "fluxcal",
+    pbar_manager: enlighten.Manager | None = None,
 ) -> dict:
     # Making these plots uses some extra memory
     if plot_tab or plot_tsky or plot_integrals:
         plot_images = True
     else:
         plot_images = False
-
-    # If level is below INFO, disable progress bar as it will be broken up by
-    # verbose log statements. If it is above INFO, also disable it.
-    disable_tqdm = True
-    if logger.level is logging.INFO:
-        disable_tqdm = False
 
     ntime = len(eval_offsets)
     nfreq = len(eval_freqs)
@@ -118,8 +113,11 @@ def compute_sky_integrals(
 
     # For each evaluation frequency we will calculate which parts of the sky are
     # within the primary beam and only integrate the pixels in those regions
+    if pbar_manager:
+        fpbar = pbar_manager.counter(total=nfreq, desc="  Computing:", unit="freqs")
     for ii in range(nfreq):
-        logger.info(f"Computing frequency {ii}: {eval_freqs[ii].to_string(precision=2)}")
+        freq_val = eval_freqs[ii].to(u.MHz).value
+        logger.info(f"Frequency {ii}: {freq_val:.2f} MHz")
 
         # Define a "look" vector pointing towards the pulsar
         look_psi = mwa_vcs_fluxcal.calcGeometricDelays(
@@ -182,9 +180,12 @@ def compute_sky_integrals(
             int_B_coarse = np.zeros(shape=(ntime, *grid_pbp.shape), dtype=np.float64)
             int_afp_coarse = np.zeros(shape=(ntime, *grid_pbp.shape), dtype=np.float64)
 
-        # Make sure there are no INFO-level logs in this loop
-        for jj in tqdm(range(num_jobs), unit="job", disable=disable_tqdm):
-            logger.debug(f"Computing job {jj}")
+        if pbar_manager:
+            jpbar = pbar_manager.counter(
+                total=num_jobs, desc=f"{freq_val:-7.2f} MHz:", unit="jobs", leave=False
+            )
+        for jj in range(num_jobs):
+            logger.debug(f"Job {jj}")
 
             # Alt/Az coordinates of coarse pixels (blocks) in this job
             az_job = az_jobs[jj]
@@ -321,6 +322,11 @@ def compute_sky_integrals(
                         int_B_T_coarse[kk, nn, mm] = np.sum(int_B_T_blocks[kk, ll])
                         int_B_coarse[kk, nn, mm] = np.sum(int_B_blocks[kk, ll])
 
+            if pbar_manager:
+                jpbar.update()
+
+        jpbar.close()
+
         if plot_images:
             for tt in range(ntime):
                 if plot_tab:
@@ -394,6 +400,11 @@ def compute_sky_integrals(
         results["A_eff"][:, ii] = A_eff
         results["G"][:, ii] = G
         results["SEFD"][:, ii] = sefd
+
+        if pbar_manager:
+            fpbar.update()
+
+    fpbar.close()
 
     results["SEFD_mean"] = np.mean(results["SEFD"])
 

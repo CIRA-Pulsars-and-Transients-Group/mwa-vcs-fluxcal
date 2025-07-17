@@ -23,7 +23,7 @@ dependencies = [
     "scikit-image",
     "scipy",
     "rtoml",
-    "tqdm",
+    "enlighten",
 ]
 
 [project.scripts]

@@ -88,7 +88,7 @@ def tesellate_primary_beam(
     if plot:
         cmap = plt.get_cmap("cmr.arctic")
         fig, ax = plt.subplots(
-            figsize=(6, 5), dpi=300, tight_layout=True, subplot_kw={"projection": "polar"}
+            figsize=(6, 5), tight_layout=True, subplot_kw={"projection": "polar"}
         )
         pbp_inbeam = np.where(mask, pbp, np.nan)
         im = ax.pcolormesh(az, za, np.log10(pbp_inbeam), rasterized=True, shading="auto", cmap=cmap)

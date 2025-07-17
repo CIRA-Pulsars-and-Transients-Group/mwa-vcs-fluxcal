@@ -56,7 +56,7 @@ def plot_pulse_profile(
     num_bin = profile.shape[0]
     bins = np.arange(num_bin) / (num_bin - 1)
 
-    fig, ax = plt.subplots(figsize=(8, 4), dpi=300, tight_layout=True)
+    fig, ax = plt.subplots(figsize=(8, 4), tight_layout=True)
 
     lw = 0.6
 
@@ -139,7 +139,7 @@ def plot_trcvr_vc_freq(
     savename : `str`, optional
         The filename to save the plot as. Default: "trcvr_vs_freq.png".
     """
-    fig, ax = plt.subplots(figsize=(6, 5), dpi=300, tight_layout=True)
+    fig, ax = plt.subplots(figsize=(6, 5), tight_layout=True)
 
     freqs = np.linspace(fctr - df / 2, fctr + df / 2, 1000)
 
@@ -184,7 +184,7 @@ def plot_primary_beam(
     cmap.set_under(color="w")
     contour_levels = [0.01, 0.1, 0.5, 0.9]
 
-    fig = plt.figure(figsize=(6, 5), dpi=300, tight_layout=True)
+    fig = plt.figure(figsize=(6, 5), tight_layout=True)
     ax = fig.add_subplot(projection="polar")
     im = ax.pcolormesh(
         grid_az,
@@ -247,7 +247,7 @@ def plot_tied_array_beam(
     cmap = plt.get_cmap("cmr.arctic_r")
     cmap.set_under(color="w")
 
-    fig = plt.figure(figsize=(6, 5), dpi=300, tight_layout=True)
+    fig = plt.figure(figsize=(6, 5), tight_layout=True)
     ax = fig.add_subplot(projection="polar")
     im = ax.pcolormesh(
         grid_az,
@@ -311,7 +311,6 @@ def plot_sky_images(
     fig, axes = plt.subplots(
         ncols=num_images,
         figsize=(5 * num_images, 6),
-        dpi=300,
         tight_layout=True,
         subplot_kw={"projection": "polar"},
     )
@@ -400,7 +399,7 @@ def plot_3d_result(
     ttg, ffg = np.meshgrid(tt, ff, indexing="ij")
     ddg = interp((ttg, ffg))
 
-    fig, ax = plt.subplots(dpi=300, subplot_kw={"projection": "3d"})
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
     ax.scatter(tg.ravel(), fg.ravel(), d.ravel(), s=20, c="k")
     ax.plot_wireframe(ttg, ffg, ddg, alpha=0.4)
     ax.set(

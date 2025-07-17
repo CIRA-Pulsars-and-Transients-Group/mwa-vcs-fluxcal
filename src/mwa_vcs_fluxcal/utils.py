@@ -2,7 +2,9 @@
 # Licensed under the Academic Free License version 3.0 #
 ########################################################
 
+import builtins
 import logging
+from typing import Any
 
 import numpy as np
 import psrchive
@@ -95,6 +97,41 @@ def log_nan_zeros(arr: np.ndarray) -> np.ndarray:
     return np.log10(np.where(arr > 0, arr, np.nan))
 
 
+def pythonise(input: Any) -> Any:
+    """Convert numpy types to builtin types using recursion.
+
+    Parameters
+    ----------
+    input : `Any`
+        A number, iterator, or dictionary.
+
+    Returns
+    -------
+    output : `Any`
+        A number, iterator, or dictionary containing only builtin types.
+    """
+    match type(input):
+        case np.bool_:
+            output = bool(input)
+        case np.int_ | np.int32:
+            output = int(input)
+        case np.float_ | np.float32:
+            output = float(input)
+        case np.str_:
+            output = str(input)
+        case builtins.tuple:
+            output = tuple(pythonise(item) for item in input)
+        case builtins.list:
+            output = [pythonise(item) for item in input]
+        case builtins.dict:
+            output = {key: pythonise(val) for (key, val) in input.items()}
+        case np.ndarray:
+            output = pythonise(input.tolist())
+        case _:
+            output = input
+    return output
+
+
 def qty_dict_to_toml(qty_dict: dict, savename="qty_dict.toml") -> None:
     """Write a dictionary of astropy Quantities to a TOML file.
 
@@ -107,17 +144,13 @@ def qty_dict_to_toml(qty_dict: dict, savename="qty_dict.toml") -> None:
     """
     vals_dict = dict()
     for key in qty_dict:
+        # Store in [value, "unit"] format and ensure all types are native
         if type(qty_dict[key]) in [Quantity, Angle, Longitude, Latitude]:
-            vals_dict[key] = [qty_dict[key].value, qty_dict[key].unit.to_string()]
+            vals_dict[key] = [pythonise(qty_dict[key].value), qty_dict[key].unit.to_string()]
         elif type(qty_dict[key]) is str:
-            vals_dict[key] = [qty_dict[key], "string"]
-            continue
+            vals_dict[key] = [pythonise(qty_dict[key]), "string"]
         else:
-            vals_dict[key] = [qty_dict[key], "unitless"]
-        if type(vals_dict[key][0]) is np.ndarray:
-            vals_dict[key][0] = vals_dict[key][0].tolist()
-        else:
-            vals_dict[key][0] = float(vals_dict[key][0])
+            vals_dict[key] = [pythonise(qty_dict[key]), "unitless"]
     with open(savename, "w") as f:
         rtoml.dump(vals_dict, f)
 

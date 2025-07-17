@@ -21,6 +21,8 @@ __all__ = [
     "plot_3d_result",
 ]
 
+logger = logging.getLogger(__name__)
+
 
 def plot_pulse_profile(
     profile: np.ndarray,
@@ -30,7 +32,6 @@ def plot_pulse_profile(
     ylabel: str = "Flux Density",
     title: str = None,
     savename: str = "pulse_profile.png",
-    logger: logging.Logger | None = None,
 ) -> None:
     """Generate a plot of a pulse profile, indicating the noise level and the
     offpulse region.
@@ -51,12 +52,7 @@ def plot_pulse_profile(
         A title for the plot. Default: None.
     savename : `str`, optional
         The filename to save the plot as. Default: "pulse_profile.png".
-    logger : `logging.Logger`, optional
-        A logger to use. Default: `None`.
     """
-    if logger is None:
-        logger = mwa_vcs_fluxcal.get_logger()
-
     num_bin = profile.shape[0]
     bins = np.arange(num_bin) / (num_bin - 1)
 
@@ -128,11 +124,7 @@ def plot_pulse_profile(
 
 
 def plot_trcvr_vc_freq(
-    trcvr_spline: CubicSpline,
-    fctr: float,
-    df: float,
-    savename: str = "trcvr_vs_freq.png",
-    logger: logging.Logger | None = None,
+    trcvr_spline: CubicSpline, fctr: float, df: float, savename: str = "trcvr_vs_freq.png"
 ) -> None:
     """Plot the receiver temperature as a function of frequency.
 
@@ -146,12 +138,7 @@ def plot_trcvr_vc_freq(
         The bandwidth in MHz.
     savename : `str`, optional
         The filename to save the plot as. Default: "trcvr_vs_freq.png".
-    logger : `logging.Logger`, optional
-        A logger to use. Default: `None`.
     """
-    if logger is None:
-        logger = mwa_vcs_fluxcal.get_logger()
-
     fig, ax = plt.subplots(figsize=(6, 5), dpi=300, tight_layout=True)
 
     freqs = np.linspace(fctr - df / 2, fctr + df / 2, 1000)
@@ -179,7 +166,6 @@ def plot_primary_beam(
     grid_za: np.ndarray[float],
     grid_pbp: np.ndarray[float],
     savename: str = "primary_beam.png",
-    logger: logging.Logger | None = None,
 ) -> None:
     """Plot the primary beam power.
 
@@ -193,12 +179,7 @@ def plot_primary_beam(
         A 2D grid of powers.
     savename : `str`, optional
         The filename to save the plot as. Default: "primary_beam.png".
-    logger : `logging.Logger`, optional
-        A logger to use. Default: `None`.
     """
-    if logger is None:
-        logger = mwa_vcs_fluxcal.get_logger()
-
     cmap = plt.get_cmap("cmr.arctic_r")
     cmap.set_under(color="w")
     contour_levels = [0.01, 0.1, 0.5, 0.9]
@@ -249,7 +230,6 @@ def plot_tied_array_beam(
     grid_za: np.ndarray[float],
     grid_tabp: np.ndarray[float],
     savename: str = "tied_array_beam.png",
-    logger: logging.Logger | None = None,
 ) -> None:
     """Plot the tied array beam power.
 
@@ -263,12 +243,7 @@ def plot_tied_array_beam(
         A 2D grid of powers.
     savename : `str`, optional
         The filename to save the plot as. Default: "tied_array_beam.png".
-    logger : `logging.Logger`, optional
-        A logger to use. Default: `None`.
     """
-    if logger is None:
-        logger = mwa_vcs_fluxcal.get_logger()
-
     cmap = plt.get_cmap("cmr.arctic_r")
     cmap.set_under(color="w")
 
@@ -310,7 +285,6 @@ def plot_sky_images(
     label_list: list,
     pulsar_coords: SkyCoord = None,
     savename: str = "sky_images.png",
-    logger: logging.Logger | None = None,
 ) -> None:
     """Plot multiple arrays on polar Az/ZA skymaps.
 
@@ -328,12 +302,7 @@ def plot_sky_images(
         The coordinates of the target pulsar to plot in the beam. Default: None.
     savename : `str`, optional
         The filename to save the plot as. Default: "sky_images.png".
-    logger : `logging.Logger`, optional
-        A logger to use. Default: `None`.
     """
-    if logger is None:
-        logger = mwa_vcs_fluxcal.get_logger()
-
     cmap = plt.get_cmap("cmr.arctic_r")
     cmap.set_under(color="w")
 
@@ -401,7 +370,6 @@ def plot_3d_result(
     zlabel: str,
     num_points: int = 20,
     savename: str = "results.png",
-    logger: logging.Logger | None = None,
 ) -> RegularGridInterpolator:
     """Make a 3D plot of the (t,f) parameter space for data d.
 
@@ -419,17 +387,12 @@ def plot_3d_result(
         The number of points to interpolate the data to in each dimension. Default: 20.
     savename : `str`, optional
         The filename to save the plot as. Default: "results.png".
-    logger : `logging.Logger`, optional
-        A logger to use. Default: `None`.
 
     Returns
     -------
     interp : `RegularGridInterpolator`
         A function defining the interpolated 2D surface.
     """
-    if logger is None:
-        logger = mwa_vcs_fluxcal.get_logger()
-
     tg, fg = np.meshgrid(t, f, indexing="ij")
     interp = RegularGridInterpolator((t, f), d, method="cubic")
     tt = np.linspace(np.min(t), np.max(t), num_points)

@@ -8,6 +8,8 @@
 
 # TODO: Get the additional flagged tiles from the calibration solution
 
+import logging
+
 import astropy.units as u
 import click
 import mwalib
@@ -20,6 +22,8 @@ from scipy import integrate
 import mwa_vcs_fluxcal
 from mwa_vcs_fluxcal import npol
 
+logger = logging.getLogger(__name__)
+
 
 @click.command()
 @click.help_option("-h", "--help")
@@ -27,7 +31,7 @@ from mwa_vcs_fluxcal import npol
 @click.option(
     "-L",
     "log_level",
-    type=click.Choice(list(mwa_vcs_fluxcal.get_log_levels()), case_sensitive=False),
+    type=click.Choice(mwa_vcs_fluxcal.log_levels.keys(), case_sensitive=False),
     default="INFO",
     show_default=True,
     help="The logger verbosity level.",
@@ -162,33 +166,24 @@ def main(
     plot_integrals: bool,
     plot_3d: bool,
 ) -> None:
-    log_level_dict = mwa_vcs_fluxcal.get_log_levels()
-    logger = mwa_vcs_fluxcal.get_logger(log_level=log_level_dict[log_level])
+    mwa_vcs_fluxcal.setup_logger("mwa_vcs_fluxcal", log_level)
 
     # If the archive is not provided, then the SEFD can be still be calculated but
     # the mean flux density cannot
     if archive is not None:
         # Load, dedisperse, and baseline-subtract the detection archive
         archive = mwa_vcs_fluxcal.read_archive(
-            archive, bscrunch=bscrunch, subtract_baseline=True, dedisperse=True, logger=logger
+            archive, bscrunch=bscrunch, subtract_baseline=True, dedisperse=True
         )
 
         if noise_archive is not None:
             # Load, dedisperse, and baseline-subtract the noise archive
             noise_archive = mwa_vcs_fluxcal.read_archive(
-                noise_archive,
-                bscrunch=bscrunch,
-                subtract_baseline=True,
-                dedisperse=False,
-                logger=logger,
+                noise_archive, bscrunch=bscrunch, subtract_baseline=True, dedisperse=False
             )
 
         snr_profile, std_uncal_noise = mwa_vcs_fluxcal.get_snr_profile(
-            archive,
-            noise_archive=noise_archive,
-            windowsize=window_size,
-            plot_profile=plot_profile,
-            logger=logger,
+            archive, noise_archive=noise_archive, windowsize=window_size, plot_profile=plot_profile
         )
     else:
         if target is None:
@@ -310,9 +305,7 @@ def main(
     if plot_trec:
         # Plot the receiver temperature vs frequency
         T_rec_spline = mwa_vcs_fluxcal.splineRecieverTemp()
-        mwa_vcs_fluxcal.plot_trcvr_vc_freq(
-            T_rec_spline, fctr.to(u.MHz).value, bw.to(u.MHz).value, logger=logger
-        )
+        mwa_vcs_fluxcal.plot_trcvr_vc_freq(T_rec_spline, fctr.to(u.MHz).value, bw.to(u.MHz).value)
 
     # Compute the sky integrals required to get T_sys and gain
     inputs, results = mwa_vcs_fluxcal.compute_sky_integrals(
@@ -330,7 +323,6 @@ def main(
         plot_tsky=plot_tsky,
         plot_integrals=plot_integrals,
         T_amb=T_amb,
-        logger=logger,
     )
 
     if plot_3d and nfreq >= 4 and ntime >= 4:
@@ -341,7 +333,6 @@ def main(
             results["T_sys"].value,
             zlabel="$T_\mathrm{sys}$ [K]",
             savename="3d_tsys.png",
-            logger=logger,
         )
         mwa_vcs_fluxcal.plot_3d_result(
             eval_offsets.to(u.s).value,
@@ -349,7 +340,6 @@ def main(
             results["G"].value,
             zlabel="Gain [K/Jy]",
             savename="3d_gain.png",
-            logger=logger,
         )
         mwa_vcs_fluxcal.plot_3d_result(
             eval_offsets.to(u.s).value,
@@ -357,7 +347,6 @@ def main(
             results["SEFD"].value,
             zlabel="SEFD [Jy]",
             savename="3d_sefd.png",
-            logger=logger,
         )
 
     if archive is not None:

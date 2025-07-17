@@ -13,6 +13,8 @@ from skimage import measure
 
 __all__ = ["tesellate_primary_beam", "upsample_blocks"]
 
+logger = logging.getLogger(__name__)
+
 
 def tesellate_primary_beam(
     az: np.ndarray[float],
@@ -23,7 +25,6 @@ def tesellate_primary_beam(
     plot: bool = True,
     pulsar_coords: SkyCoord = None,
     savename: str = "primary_beam_masked.png",
-    logger: logging.Logger | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Tesellate the primary beam by finding pixels inside iso-power contours.
 
@@ -45,8 +46,6 @@ def tesellate_primary_beam(
         The coordinates of the target pulsar to plot in the beam. Default: None.
     savename : `str`, optional
         The filename to save the plot as. Default: "primary_beam_masked.png".
-    logger : `logging.Logger`, optional
-        A logger to use. Default: `None`.
 
     Returns
     -------

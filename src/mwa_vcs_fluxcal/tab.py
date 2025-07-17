@@ -22,6 +22,8 @@ __all__ = [
     "find_max_baseline",
 ]
 
+logger = logging.getLogger(__name__)
+
 
 def getPrimaryBeamPower(
     metadata: MetafitsContext,
@@ -31,7 +33,6 @@ def getPrimaryBeamPower(
     stokes: str = "I",
     zenithNorm: bool = True,
     show_path: bool = False,
-    logger: logging.Logger | None = None,
 ) -> dict:
     """Calculate the primary beam response (full Stokes) for a
     given observation over a grid of the sky.
@@ -63,9 +64,6 @@ def getPrimaryBeamPower(
              arguments (or however the user desires).
     :rtype: dict[str, np.ndarray]
     """
-    if logger is None:
-        logger = mwa_vcs_fluxcal.get_logger()
-
     za = np.pi / 2 - alt
     beam = PrimaryBeam(None)
 
@@ -235,9 +233,7 @@ def calcGeometricDelays(positions: np.ndarray, freq_hz: float, alt: float, az: f
     return phasor
 
 
-def calcArrayFactorPower(
-    look_w: np.ndarray, target_w: np.ndarray, logger: logging.Logger | None = None
-) -> np.ndarray:
+def calcArrayFactorPower(look_w: np.ndarray, target_w: np.ndarray) -> np.ndarray:
     """Compute the array factor power from a given pointing phasor
     and one or more target directions.
 
@@ -251,9 +247,6 @@ def calcArrayFactorPower(
         target direction.
     :rtype: np.ndarray
     """
-    if logger is None:
-        logger = mwa_vcs_fluxcal.get_logger()
-
     # At this stage, the shape of target_w = (nant,...) and while
     # the shape of look_w = (...,nant)
     logger.debug("Summing over antennas")

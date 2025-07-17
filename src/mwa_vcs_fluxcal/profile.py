@@ -12,6 +12,8 @@ import mwa_vcs_fluxcal
 
 __all__ = ["get_profile_from_archive", "get_offpulse_region", "get_snr_profile"]
 
+logger = logging.getLogger(__name__)
+
 
 def get_profile_from_archive(archive: psrchive.Archive) -> np.ndarray:
     """Get the Stokes I profile from a PSRCHIVE Archive object.
@@ -34,9 +36,7 @@ def get_profile_from_archive(archive: psrchive.Archive) -> np.ndarray:
     return profile
 
 
-def get_offpulse_region(
-    data: np.ndarray, windowsize: int | None = None, logger: logging.Logger | None = None
-) -> np.ndarray[bool]:
+def get_offpulse_region(data: np.ndarray, windowsize: int | None = None) -> np.ndarray[bool]:
     """Determine the off-pulse window by minimising the integral over a range.
     i.e., because noise should integrate towards zero, finding the region that
     minimises the area mean it is representative of the noise level.
@@ -48,9 +48,7 @@ def get_offpulse_region(
     data : `np.ndarray`
         The original pulse profile.
     windowsize : `np.ndarray`, optional
-        Window width (in bins) defining the trial regions to integrate. Default: `None`
-    logger : `logging.Logger`, optional
-        A logger to use. Default: `None`.
+        Window width (in bins) defining the trial regions to integrate. Default: `None`.
 
     Returns
     -------
@@ -59,9 +57,6 @@ def get_offpulse_region(
     offpulse_mask : `np.ndarray[bool]`
         A mask which is True for offpulse bins and False for onpulse bins.
     """
-    if logger is None:
-        logger = mwa_vcs_fluxcal.get_logger()
-
     nbins = len(data)
 
     if windowsize is None:
@@ -88,7 +83,6 @@ def get_snr_profile(
     noise_archive: str | None = None,
     windowsize: int | None = None,
     plot_profile: bool = False,
-    logger: logging.Logger | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Get the S/N profile from a PSRCHIVE archive.
 
@@ -102,8 +96,6 @@ def get_snr_profile(
         The window size (in bins) to use to find the offpulse. Default: `None`.
     plot_profile : `bool`, optional
         Plot the pulse profile. Default: `False`.
-    logger : `logging.Logger`, optional
-        A logger to use. Default: `None`.
 
     Returns
     -------
@@ -112,16 +104,11 @@ def get_snr_profile(
     std_noise : `np.ndarray`
         The standard deviation of the offpulse noise in the uncalibrated profile.
     """
-    if logger is None:
-        logger = mwa_vcs_fluxcal.get_logger()
-
     # Get the Stokes I profile as a numpy array
     profile = mwa_vcs_fluxcal.get_profile_from_archive(archive)
 
     # Get the offpulse region of the profile
-    op_idx, op_mask = mwa_vcs_fluxcal.get_offpulse_region(
-        profile, windowsize=windowsize, logger=logger
-    )
+    op_idx, op_mask = mwa_vcs_fluxcal.get_offpulse_region(profile, windowsize=windowsize)
     offpulse = profile[op_mask]
 
     if noise_archive is not None:
@@ -150,7 +137,6 @@ def get_snr_profile(
             offpulse_win=op_idx,
             offpulse_std=1,
             ylabel="S/N",
-            logger=logger,
         )
 
     return snr_profile, std_noise

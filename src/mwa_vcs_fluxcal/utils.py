@@ -14,13 +14,14 @@ import mwa_vcs_fluxcal
 
 __all__ = ["read_archive", "log_nan_zeros", "qty_dict_to_toml", "get_flux_density_uncertainty"]
 
+logger = logging.getLogger(__name__)
+
 
 def read_archive(
     filename: str,
     bscrunch: int | None = None,
     subtract_baseline: bool = True,
     dedisperse: bool = True,
-    logger: logging.Logger | None = None,
 ) -> psrchive.Archive:
     """Read a PSRCHIVE Archive, check that the data is in Stokes format,
     dedisperse, and subtract the baseline.
@@ -35,17 +36,12 @@ def read_archive(
         Subtract the baseline. Default: True.
     dedisperse : `bool`, optional
         Apply channel delays to correct for dispersion. Default: True.
-    logger : `logging.Logger`, optional
-        A logger to use. Default: None.
 
     Returns
     -------
     archive : `psrchive.Archive`
         The data stored in an Archive object.
     """
-    if logger is None:
-        logger = mwa_vcs_fluxcal.get_logger()
-
     logger.info(f"Loading archive: {filename}")
     try:
         archive = psrchive.Archive_load(filename)

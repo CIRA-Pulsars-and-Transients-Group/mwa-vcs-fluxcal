@@ -20,12 +20,11 @@ from mwa_vcs_fluxcal import RCVR_TEMP_FILENAME, SKY_TEMP_MAP_FILENAME
 
 __all__ = ["splineSkyTempAtCoord", "getSkyTempAtCoords", "splineRecieverTemp", "getAmbientTemp"]
 
+logger = logging.getLogger(__name__)
+
 
 def splineSkyTempAtCoord(
-    context: MetafitsContext,
-    coord: SkyCoord,
-    sky_index: float = -2.55,
-    logger: logging.Logger | None = None,
+    context: MetafitsContext, coord: SkyCoord, sky_index: float = -2.55
 ) -> CubicSpline:
     """Estimate the sky temperature at a given coordinate, provided a metafits contenxt
     for frequency information. Returns a CubicSpline for interpolation across the observed
@@ -44,9 +43,6 @@ def splineSkyTempAtCoord(
              Input into the spline object must be in MHz for correct temperatures in Kelvin.
     :rtype: CubicSpline
     """
-    if logger is None:
-        logger = mwa_vcs_fluxcal.get_logger()
-
     # read the sky temperature map
     ref = importlib.resources.files("mwa_vcs_fluxcal") / SKY_TEMP_MAP_FILENAME
     with importlib.resources.as_file(ref) as path:
@@ -76,10 +72,7 @@ def splineSkyTempAtCoord(
 
 
 def getSkyTempAtCoords(
-    coords: SkyCoord,
-    obs_freq_mhz: float,
-    sky_index: float = -2.55,
-    logger: logging.Logger | None = None,
+    coords: SkyCoord, obs_freq_mhz: float, sky_index: float = -2.55
 ) -> np.ndarray:
     """Estimate the sky temperature at given coordinates, provided a metafits contenxt
     for frequency information. Returns the sky temperature at obs_freq_mhz for each
@@ -94,9 +87,6 @@ def getSkyTempAtCoords(
     :return: The sky temperature at each coordinate interpolated to the given frequency.
     :rtype: ndarray
     """
-    if logger is None:
-        logger = mwa_vcs_fluxcal.get_logger()
-
     # read the sky temperature map
     ref = importlib.resources.files("mwa_vcs_fluxcal") / SKY_TEMP_MAP_FILENAME
     with importlib.resources.as_file(ref) as path:

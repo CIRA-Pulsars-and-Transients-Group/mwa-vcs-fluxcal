@@ -18,7 +18,10 @@ from mwa_vcs_fluxcal import MWA_LOCATION, SI_TO_JY, eta, fc
 
 __all__ = ["compute_sky_integrals"]
 
+logger = logging.getLogger(__name__)
 
+
+# TODO: Make docstring
 def compute_sky_integrals(
     context: MetafitsContext,
     start_time: Time,
@@ -34,11 +37,7 @@ def compute_sky_integrals(
     plot_tsky: bool = False,
     plot_integrals: bool = False,
     T_amb: u.Quantity = 295.55 * u.K,
-    logger: logging.Logger | None = None,
 ) -> dict:
-    if logger is None:
-        logger = mwa_vcs_fluxcal.get_logger()
-
     # Making these plots uses some extra memory
     if plot_tab or plot_tsky or plot_integrals:
         plot_images = True
@@ -131,7 +130,7 @@ def compute_sky_integrals(
 
         # Compute the primary beam power
         grid_pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
-            context, eval_freqs[ii].to(u.Hz).value, alt_grid_coarse, az_grid_coarse, logger=logger
+            context, eval_freqs[ii].to(u.Hz).value, alt_grid_coarse, az_grid_coarse
         )["I"].reshape(az_grid_coarse.shape)
 
         # Create a mask selecting the coarse pixels covering the primary beam
@@ -145,7 +144,6 @@ def compute_sky_integrals(
                 plot=plot_pb,
                 pulsar_coords=pulsar_coords_altaz,
                 savename=f"primary_beam_masked_{eval_freqs[ii].to(u.MHz).value:.0f}MHz.png",
-                logger=logger,
             )
         else:
             pb_mask = np.full(shape=grid_pbp.shape, fill_value=True, dtype=bool)
@@ -221,7 +219,7 @@ def compute_sky_integrals(
             # Calculate the array factor power (Eq 11 of M+17)
             # afp will have shape (ntime,npixels)
             bench_t0 = pc()
-            afp = mwa_vcs_fluxcal.calcArrayFactorPower(look_psi, target_psi, logger=logger)
+            afp = mwa_vcs_fluxcal.calcArrayFactorPower(look_psi, target_psi)
             logger.debug(f"Computing afp took {pc() - bench_t0} s")
 
             # Reshape the flattened arrays into (nblocks,pixels_per_block) so
@@ -269,11 +267,7 @@ def compute_sky_integrals(
             # Calculate the primary beam power for each pixel in the job
             bench_t0 = pc()
             pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
-                context,
-                eval_freqs[ii].to(u.Hz).value,
-                alt_fine_inbeam,
-                az_fine_inbeam,
-                logger=logger,
+                context, eval_freqs[ii].to(u.Hz).value, alt_fine_inbeam, az_fine_inbeam
             )["I"]
             logger.debug(f"Computing PB took {pc() - bench_t0} s")
 
@@ -290,7 +284,7 @@ def compute_sky_integrals(
                     obstime=eval_times[kk],
                 )
                 tsky[kk, :] = mwa_vcs_fluxcal.getSkyTempAtCoords(
-                    pix_coords, eval_freqs[ii].to(u.MHz).value, logger=logger
+                    pix_coords, eval_freqs[ii].to(u.MHz).value
                 )
 
                 # Calculate the tied-array beam power (Eq 12 of M+17)
@@ -344,7 +338,6 @@ def compute_sky_integrals(
                         ],
                         pulsar_coords_altaz[tt],
                         savename=f"log_beam_images_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
-                        logger=logger,
                     )
                 if plot_integrals:
                     mwa_vcs_fluxcal.plot_sky_images(
@@ -363,7 +356,6 @@ def compute_sky_integrals(
                         ],
                         pulsar_coords_altaz[tt],
                         savename=f"log_integral_images_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
-                        logger=logger,
                     )
                 if plot_tsky:
                     mwa_vcs_fluxcal.plot_sky_images(
@@ -373,7 +365,6 @@ def compute_sky_integrals(
                         ["$\mathrm{log}_{10}\,T_\mathrm{sky}$ [K]"],
                         pulsar_coords_altaz[tt],
                         savename=f"log_tsky_image_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
-                        logger=logger,
                     )
 
         # Antenna temperature (Eq 13 of M+17)

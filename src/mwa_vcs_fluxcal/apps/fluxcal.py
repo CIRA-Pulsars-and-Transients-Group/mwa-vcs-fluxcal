@@ -18,6 +18,7 @@ import numpy as np
 from astropy.constants import c
 from astropy.coordinates import Angle, SkyCoord
 from astropy.time import Time
+from psrutils import StokesCube, log_levels, setup_logger
 from scipy import integrate
 
 import mwa_vcs_fluxcal
@@ -32,7 +33,7 @@ logger = logging.getLogger(__name__)
 @click.option(
     "-L",
     "log_level",
-    type=click.Choice(mwa_vcs_fluxcal.log_levels.keys(), case_sensitive=False),
+    type=click.Choice(log_levels.keys(), case_sensitive=False),
     default="INFO",
     show_default=True,
     help="The logger verbosity level.",
@@ -78,9 +79,6 @@ logger = logging.getLogger(__name__)
 )
 @click.option(
     "-b", "--bscrunch", "bscrunch", type=int, help="Bscrunch to this number of phase bins."
-)
-@click.option(
-    "-w", "--window_size", "window_size", type=int, help="Window size to use to find the offpulse."
 )
 @click.option(
     "--fine_res",
@@ -150,7 +148,6 @@ def main(
     archive: str,
     noise_archive: str,
     bscrunch: int,
-    window_size: int,
     fine_res: float,
     coarse_res: float,
     min_pbp: float,
@@ -167,33 +164,39 @@ def main(
     plot_integrals: bool,
     plot_3d: bool,
 ) -> None:
-    mwa_vcs_fluxcal.setup_logger("mwa_vcs_fluxcal", log_level)
+    setup_logger("mwa_vcs_fluxcal", log_level)
 
     # If the archive is not provided, then the SEFD can be still be calculated but
     # the mean flux density cannot
     if archive is not None:
-        # Load, dedisperse, and baseline-subtract the detection archive
-        archive = mwa_vcs_fluxcal.read_archive(
-            archive, bscrunch=bscrunch, subtract_baseline=True, dedisperse=True
-        )
+        logger.info(f"Loading archive: {archive}")
+        cube = StokesCube.from_psrchive(archive, tscrunch=1, fscrunch=1, bscrunch=bscrunch)
+        logger.info(f"Number of bins: {cube.num_bin}")
 
         if noise_archive is not None:
-            # Load, dedisperse, and baseline-subtract the noise archive
-            noise_archive = mwa_vcs_fluxcal.read_archive(
-                noise_archive, bscrunch=bscrunch, subtract_baseline=True, dedisperse=False
+            logger.info(f"Loading archive: {archive}")
+            noise_cube = StokesCube.from_psrchive(
+                noise_archive, tscrunch=1, fscrunch=1, bscrunch=bscrunch, dedisperse=False
             )
+            logger.info(f"Number of bins: {cube.num_bin}")
+        else:
+            noise_cube = None
+
+        offp_mean, offp_std = mwa_vcs_fluxcal.get_offpulse_stats(cube, noise_cube)
+        snr_profile = cube.profile / offp_std - offp_mean
+
+        if noise_archive is not None:
+            noise_snr_profile = noise_cube.profile / offp_std - offp_mean
+        else:
+            noise_snr_profile = None
 
         if plot_profile:
-            profile_savename = f"{archive.get_source()}_pulse_profile.png"
-        else:
-            profile_savename = None
-
-        snr_profile, std_uncal_noise = mwa_vcs_fluxcal.get_snr_profile(
-            archive,
-            noise_archive=noise_archive,
-            windowsize=window_size,
-            savename=profile_savename,
-        )
+            mwa_vcs_fluxcal.plot_pulse_profile(
+                snr_profile,
+                noise_profile=noise_snr_profile,
+                offpulse_std=1.0,
+                savename=f"{cube.source}_pulse_profile.png",
+            )
     else:
         if target is None:
             logger.info("No target coordinates provided. Exiting.")
@@ -232,10 +235,10 @@ def main(
                 exit(1)
             t1 = t0 + int_time * u.s
     else:
-        fctr_ar = archive.get_centre_frequency() * u.MHz
-        bw_ar = archive.get_bandwidth() * u.MHz
-        t0_ar = Time(archive.get_first_Integration().get_start_time().in_days(), format="mjd")
-        t1_ar = Time(archive.get_last_Integration().get_end_time().in_days(), format="mjd")
+        fctr_ar = cube.ctr_freq * u.MHz
+        bw_ar = cube.bandwidth * u.MHz
+        t0_ar = Time(cube.start_mjd, format="mjd")
+        t1_ar = Time(cube.end_mjd, format="mjd")
 
         if not np.isclose(fctr.value, fctr_ar.value, atol=0.01, rtol=0.0):
             logger.warning(
@@ -304,7 +307,7 @@ def main(
 
     # Create a SkyCoord object defining the RA/Dec of the pulsar
     if archive is not None:
-        ra_hms, dec_dms = archive.get_coordinates().getHMSDMS().split(" ")
+        ra_hms, dec_dms = cube.archive.get_coordinates().getHMSDMS().split(" ")
         pulsar_coords = SkyCoord(ra_hms, dec_dms, frame="icrs", unit=("hourangle", "deg"))
     else:
         pulsar_coords = SkyCoord(target, frame="icrs", unit=("hourangle", "deg"))
@@ -313,7 +316,7 @@ def main(
 
     # Get the source name, or otherwise its coordinates, to label the output files
     if archive is not None:
-        source = archive.get_source()
+        source = cube.source
     else:
         ra_str = pulsar_coords.ra.to_string(u.hour)
         dec_str = pulsar_coords.dec.to_string(u.degree, alwayssign=True)
@@ -378,13 +381,13 @@ def main(
     if archive is not None:
         # Radiometer equation (Eq 3 of M+17)
         snr_peak = np.max(snr_profile)
-        dt_bin = dt * (1 - time_flagged) / archive.get_nbin()
+        dt_bin = dt * (1 - time_flagged) / cube.num_bin
         bw_valid = bw * (1 - bw_flagged)
         radiometer_noise = results["SEFD_mean"] / np.sqrt(npol * bw_valid.to(1 / u.s) * dt_bin)
         flux_density_profile = snr_profile * radiometer_noise
-        flux_scale = radiometer_noise / std_uncal_noise
+        flux_scale = radiometer_noise / offp_std
         S_peak = np.max(flux_density_profile)
-        S_mean = integrate.trapezoid(flux_density_profile) / archive.get_nbin()
+        S_mean = integrate.trapezoid(flux_density_profile) / cube.num_bin
         logger.info(f"Peak S/N = {snr_peak}")
         logger.info(f"SEFD = {results['SEFD_mean'].to(u.Jy).to_string()}")
         logger.info(f"Peak flux density = {S_peak.to(u.mJy).to_string()}")
@@ -405,7 +408,7 @@ def main(
         # Add these to the beginning of the dictionary
         pre_dict = dict(
             Source=source,
-            Nbin=archive.get_nbin(),
+            Nbin=cube.num_bin,
             Time_frac_flagged=time_flagged,
             BW_frac_flagged=bw_flagged,
         )

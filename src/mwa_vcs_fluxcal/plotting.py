@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 def plot_pulse_profile(
     profile: np.ndarray,
     noise_profile: np.ndarray | None,
-    offpulse_win: np.ndarray | None,
+    # offpulse_win: np.ndarray | None,
     offpulse_std: float | None,
     ylabel: str = "Flux Density",
     title: str = None,
@@ -78,21 +78,21 @@ def plot_pulse_profile(
     xlims = [0, 2]
     ylims = ax.get_ylim()
 
-    if offpulse_win is not None:
-        # Shade the offpulse window
-        shade_args = dict(
-            color="tab:blue",
-            alpha=0.4,
-            zorder=0,
-        )
-        offpulse_win = offpulse_win.astype(float) / (num_bin - 1)
-        if offpulse_win[0] < offpulse_win[-1]:
-            ax.fill_betweenx(ylims, offpulse_win[0], offpulse_win[-1], **shade_args)
-            ax.fill_betweenx(ylims, offpulse_win[0] + 1, offpulse_win[-1] + 1, **shade_args)
-        else:
-            ax.fill_betweenx(ylims, 0, offpulse_win[-1], **shade_args)
-            ax.fill_betweenx(ylims, offpulse_win[0], offpulse_win[-1] + 1, **shade_args)
-            ax.fill_betweenx(ylims, offpulse_win[0] + 1, 2, **shade_args)
+    # if offpulse_win is not None:
+    #     # Shade the offpulse window
+    #     shade_args = dict(
+    #         color="tab:blue",
+    #         alpha=0.4,
+    #         zorder=0,
+    #     )
+    #     offpulse_win = offpulse_win.astype(float) / (num_bin - 1)
+    #     if offpulse_win[0] < offpulse_win[-1]:
+    #         ax.fill_betweenx(ylims, offpulse_win[0], offpulse_win[-1], **shade_args)
+    #         ax.fill_betweenx(ylims, offpulse_win[0] + 1, offpulse_win[-1] + 1, **shade_args)
+    #     else:
+    #         ax.fill_betweenx(ylims, 0, offpulse_win[-1], **shade_args)
+    #         ax.fill_betweenx(ylims, offpulse_win[0], offpulse_win[-1] + 1, **shade_args)
+    #         ax.fill_betweenx(ylims, offpulse_win[0] + 1, 2, **shade_args)
 
     if offpulse_std is not None:
         # Plot the noise baseline and shade the standard deviation

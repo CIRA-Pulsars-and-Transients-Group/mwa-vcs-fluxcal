@@ -133,6 +133,11 @@ logger = logging.getLogger(__name__)
     help="The fraction of the integration time flagged.",
 )
 @click.option("--plot_profile", is_flag=True, help="Plot the pulse profile.")
+@click.option(
+    "--plot_profile_diagnostics",
+    is_flag=True,
+    help="Plot diagnostics for the profile modelling used to get the offpulse noise.",
+)
 @click.option("--plot_trec", is_flag=True, help="Plot the receiver temperature.")
 @click.option("--plot_pb", is_flag=True, help="Plot the primary beam in Alt/Az.")
 @click.option("--plot_tab", is_flag=True, help="Plot the tied-array beam in Alt/Az.")
@@ -157,6 +162,7 @@ def main(
     bw_flagged: float,
     time_flagged: float,
     plot_profile: bool,
+    plot_profile_diagnostics: bool,
     plot_trec: bool,
     plot_pb: bool,
     plot_tab: bool,
@@ -182,7 +188,13 @@ def main(
         else:
             noise_cube = None
 
-        offp_mean, offp_std = mwa_vcs_fluxcal.get_offpulse_stats(cube, noise_cube)
+        if plot_profile_diagnostics:
+            savename = f"{cube.source}_profile_diagnostics"
+        else:
+            savename = None
+        offp_mean, offp_std = mwa_vcs_fluxcal.get_offpulse_stats(
+            cube, noise_cube, savename=savename
+        )
         snr_profile = cube.profile / offp_std - offp_mean
 
         if noise_archive is not None:

@@ -84,7 +84,7 @@ def get_flux_density_uncertainty(pulsar_coords: SkyCoord) -> float:
 
 # TODO: Make docstring
 def get_offpulse_stats(
-    cube: StokesCube, noise_cube: StokesCube | None = None
+    cube: StokesCube, noise_cube: StokesCube | None = None, savename: str | None = None
 ) -> tuple[np.float_, np.float_]:
     if isinstance(noise_cube, StokesCube):
         # The mean and standard deviation of the dispersed profile
@@ -106,10 +106,11 @@ def get_offpulse_stats(
         # there is no offpulse region
         offpulse_std = np.std(profile.residuals)
 
-        logger.info(f"Saving plot file: {cube.source}_profile_diagnostics.png")
-        profile.plot_diagnostics(
-            plot_underestimate=False,
-            plot_overestimate=True,
-            savename=f"{cube.source}_profile_diagnostics.png",
-        )
+        if savename is not None:
+            logger.info(f"Saving plot file: {savename}.png")
+            profile.plot_diagnostics(
+                plot_underestimate=False,
+                plot_overestimate=True,
+                savename=savename,
+            )
     return offpulse_mean, offpulse_std

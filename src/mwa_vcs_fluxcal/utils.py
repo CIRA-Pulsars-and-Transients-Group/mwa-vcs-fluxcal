@@ -95,7 +95,7 @@ def get_offpulse_stats(
         profile = cube.spline_profile
 
         # Find the onpulse using the spline method
-        profile.bootstrap_onpulse_regions()
+        profile.gridsearch_onpulse_regions()
 
         # It is important that the baseline is not overestimated, so we use
         # a simple sliding-window method to find the baseline
@@ -104,7 +104,7 @@ def get_offpulse_stats(
         # We use the standard deviation of the profile residuals to get an
         # estimate of the profile noise. This approach also works when
         # there is no offpulse region
-        offpulse_std = np.std(profile.residuals)
+        offpulse_std = profile.noise_est
 
         if savename is not None:
             logger.info(f"Saving plot file: {savename}.png")

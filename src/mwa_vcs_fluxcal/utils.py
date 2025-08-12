@@ -111,6 +111,7 @@ def get_offpulse_stats(
             profile.plot_diagnostics(
                 plot_underestimate=False,
                 plot_overestimate=True,
+                sourcename=cube.source,
                 savename=savename,
             )
     return offpulse_mean, offpulse_std

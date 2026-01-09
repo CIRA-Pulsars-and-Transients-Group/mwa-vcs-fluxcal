@@ -234,15 +234,19 @@ def main(
 
     if archive is None:
         if start_offset is not None:
-            if start_offset > obs_dur.to(u.s).value:
-                logger.critical("The provided start time is longer than the observation duration.")
+            if start_offset > round(obs_dur.to(u.s).value):
+                logger.critical(
+                    "The provided start time is longer than the observation duration "
+                    + f"({start_offset} > {obs_dur.to(u.s).value})."
+                )
                 exit(1)
             t0 = t0 + start_offset * u.s
 
         if int_time is not None:
-            if start_offset + int_time > obs_dur.to(u.s).value:
+            if start_offset + int_time > round(obs_dur.to(u.s).value):
                 logger.critical(
-                    "The provided integration time extends beyond the end of the observation."
+                    "The provided integration time extends beyond the end of the observation "
+                    + f"({start_offset + int_time} > {obs_dur.to(u.s).value})."
                 )
                 exit(1)
             t1 = t0 + int_time * u.s

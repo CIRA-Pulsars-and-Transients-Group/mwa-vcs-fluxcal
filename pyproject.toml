@@ -19,12 +19,15 @@ dependencies = [
     "mwalib>=1.8",
     "numpy>=1.23,<2",
     "requests",
-    "ruff",
     "scikit-image",
     "scipy",
     "rtoml",
     "enlighten",
+    "psrutils @ git+https://github.com/cplee1/psrutils.git",
 ]
+
+[dependency-groups]
+lint = ["ruff"]
 
 [project.scripts]
 fluxcal = "mwa_vcs_fluxcal.apps.fluxcal:main"

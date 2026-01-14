@@ -2,86 +2,23 @@
 # Licensed under the Academic Free License version 3.0 #
 ########################################################
 
-import builtins
 import logging
-from typing import Any
 
 import numpy as np
-import psrchive
 import rtoml
 from astropy.coordinates import Angle, Latitude, Longitude, SkyCoord
 from astropy.units import Quantity
+from psrutils import StokesCube, pythonise
 
 __all__ = [
-    "read_archive",
     "log_nan_zeros",
     "pythonise",
     "qty_dict_to_toml",
     "get_flux_density_uncertainty",
+    "get_offpulse_stats",
 ]
 
 logger = logging.getLogger(__name__)
-
-
-def read_archive(
-    filename: str,
-    bscrunch: int | None = None,
-    subtract_baseline: bool = True,
-    dedisperse: bool = True,
-) -> psrchive.Archive:
-    """Read a PSRCHIVE Archive, check that the data is in Stokes format,
-    dedisperse, and subtract the baseline.
-
-    Parameters
-    ----------
-    filename : `str`
-        The path to the archive file to load.
-    bscrunch : `int`, optional
-        Bscrunch to this number of phase bins. Default: None.
-    subtract_baseline : `bool`, optional
-        Subtract the baseline. Default: True.
-    dedisperse : `bool`, optional
-        Apply channel delays to correct for dispersion. Default: True.
-
-    Returns
-    -------
-    archive : `psrchive.Archive`
-        The data stored in an Archive object.
-    """
-    logger.info(f"Loading archive: {filename}")
-    try:
-        archive = psrchive.Archive_load(filename)
-    except AttributeError:
-        archive = psrchive.Archive.load(filename)
-
-    if archive.get_state() != "Stokes" and archive.get_npol() == 4:
-        try:
-            archive.convert_state("Stokes")
-            logger.debug("Successfully converted to Stokes.")
-        except RuntimeError:
-            logger.error("Could not convert to Stokes.")
-
-    if not archive.get_dedispersed() and dedisperse:
-        try:
-            archive.dedisperse()
-            logger.debug("Successfully dedispersed.")
-        except RuntimeError:
-            logger.error("Could not dedisperse.")
-
-    if subtract_baseline:
-        try:
-            archive.remove_baseline()
-            logger.debug("Successfully removed baseline.")
-        except RuntimeError:
-            logger.error("Could not remove baseline.")
-
-    logger.info(f"Profile has {archive.get_nbin()} bins")
-    if type(bscrunch) is int:
-        if bscrunch < archive.get_nbin():
-            logger.info(f"Averaging to {bscrunch} bins")
-            archive.bscrunch_to_nbin(bscrunch)
-
-    return archive
 
 
 def log_nan_zeros(arr: np.ndarray) -> np.ndarray:
@@ -99,41 +36,6 @@ def log_nan_zeros(arr: np.ndarray) -> np.ndarray:
         The log of the input array with zeros replaced by `np.nan`.
     """
     return np.log10(np.where(arr > 0, arr, np.nan))
-
-
-def pythonise(input: Any) -> Any:
-    """Convert numpy types to builtin types using recursion.
-
-    Parameters
-    ----------
-    input : `Any`
-        A number, iterator, or dictionary.
-
-    Returns
-    -------
-    output : `Any`
-        A number, iterator, or dictionary containing only builtin types.
-    """
-    match type(input):
-        case np.bool_:
-            output = bool(input)
-        case np.int_ | np.int32:
-            output = int(input)
-        case np.float_ | np.float32:
-            output = float(input)
-        case np.str_:
-            output = str(input)
-        case builtins.tuple:
-            output = tuple(pythonise(item) for item in input)
-        case builtins.list:
-            output = [pythonise(item) for item in input]
-        case builtins.dict:
-            output = {key: pythonise(val) for (key, val) in input.items()}
-        case np.ndarray:
-            output = pythonise(input.tolist())
-        case _:
-            output = input
-    return output
 
 
 def qty_dict_to_toml(qty_dict: dict, savename="qty_dict.toml") -> None:
@@ -178,3 +80,38 @@ def get_flux_density_uncertainty(pulsar_coords: SkyCoord) -> float:
         return 0.4
     else:
         return 0.3
+
+
+# TODO: Make docstring
+def get_offpulse_stats(
+    cube: StokesCube, noise_cube: StokesCube | None = None, savename: str | None = None
+) -> tuple[np.float_, np.float_]:
+    if isinstance(noise_cube, StokesCube):
+        # The mean and standard deviation of the dispersed profile
+        offpulse_mean = np.mean(noise_cube.profile)
+        offpulse_std = np.std(noise_cube.profile)
+    else:
+        # Get the profile as a SplineProfile object to use for analysis
+        profile = cube.spline_profile
+
+        # Find the onpulse using the spline method
+        profile.gridsearch_onpulse_regions()
+
+        # It is important that the baseline is not overestimated, so we use
+        # a simple sliding-window method to find the baseline
+        offpulse_mean = profile.get_simple_noise_stats()[0]
+
+        # We use the standard deviation of the profile residuals to get an
+        # estimate of the profile noise. This approach also works when
+        # there is no offpulse region
+        offpulse_std = profile.noise_est
+
+        if savename is not None:
+            logger.info(f"Saving plot file: {savename}.png")
+            profile.plot_diagnostics(
+                plot_underestimate=False,
+                plot_overestimate=True,
+                sourcename=cube.source,
+                savename=savename,
+            )
+    return offpulse_mean, offpulse_std

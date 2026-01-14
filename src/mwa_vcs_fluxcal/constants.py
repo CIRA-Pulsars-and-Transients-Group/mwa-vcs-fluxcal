@@ -36,6 +36,6 @@ RCVR_TEMP_FILENAME = "data/MWA_Trcvr_tile_56.csv"
 SI_TO_JY = 10**26 * u.Jy / (u.W * u.m**-2 * u.Hz**-1)
 
 # Assumptions
-fc = 0.7
+fc = 1.4
 eta = 0.98
 npol = 2

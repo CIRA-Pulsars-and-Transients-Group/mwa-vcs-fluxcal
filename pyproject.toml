@@ -23,7 +23,7 @@ dependencies = [
     "scipy",
     "rtoml",
     "enlighten",
-    # "psrutils @ git+https://github.com/cplee1/psrutils.git",
+    "psrutils @ git+https://github.com/cplee1/psrutils.git",
 ]
 
 [dependency-groups]

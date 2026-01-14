@@ -44,7 +44,7 @@ fluxcal -m 1255444104.metafits -t '00:34:21.83 -05:34:36.72' -s 600 -i 1800
 3) Checking the off-pulse window selection. E.g.
 
 ```bash
-fluxcal -a J0034-0534.ar --plot_profile
+fluxcal -a J0034-0534.ar --plot_profile_diagnostics
 ```
 
 Besides these basic inputs, there are several options detailed in the help menu:
@@ -59,7 +59,8 @@ Usage: fluxcal [OPTIONS]
 Options:
   -h, --help                      Show this message and exit.
   -V, --version                   Show the version and exit.
-  -L [debug|info|error|critical]  The logger verbosity level.  [default: INFO]
+  -L [debug|info|warning|error|critical]
+                                  The logger verbosity level.  [default: INFO]
   -m, --metafits PATH             An MWA metafits file.
   -t, --target TEXT               The target's RA/Dec in hour/deg units in any
                                   format accepted by SkyCoord.
@@ -97,6 +98,8 @@ Options:
   --time_flagged FLOAT RANGE      The fraction of the integration time
                                   flagged.  [default: 0.0; 0.0<=x<=1.0]
   --plot_profile                  Plot the pulse profile.
+  --plot_profile_diagnostics      Plot diagnostics for the profile modelling
+                                  used to get the offpulse noise.
   --plot_trec                     Plot the receiver temperature.
   --plot_pb                       Plot the primary beam in Alt/Az.
   --plot_tab                      Plot the tied-array beam in Alt/Az.

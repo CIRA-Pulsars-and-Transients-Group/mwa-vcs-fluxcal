@@ -195,10 +195,11 @@ def main(
         offp_mean, offp_std = mwa_vcs_fluxcal.get_offpulse_stats(
             cube, noise_cube, savename=savename
         )
-        snr_profile = cube.profile / offp_std - offp_mean
+        snr_profile = (cube.profile - offp_mean) / offp_std
+        logger.info(f"Average S/N per phase bin = {np.mean(snr_profile)}")
 
         if noise_archive is not None:
-            noise_snr_profile = noise_cube.profile / offp_std - offp_mean
+            noise_snr_profile = (noise_cube.profile - offp_mean) / offp_std
         else:
             noise_snr_profile = None
 

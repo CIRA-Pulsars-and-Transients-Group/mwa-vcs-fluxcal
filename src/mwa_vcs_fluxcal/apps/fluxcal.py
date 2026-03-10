@@ -41,30 +41,31 @@ from mwa_vcs_fluxcal.utils import qty_dict_to_toml
     "-s",
     "--start_offset",
     type=float,
-    help="The difference (in seconds) between the scheduled observation start time (the obs ID) "
-    + "and the start time of the data being calibrated. "
-    + "Will override the start time from the metafits, if provided.",
+    help="The difference (in seconds) between the scheduled observation start "
+    + "time (the obs ID) and the start time of the data being calibrated. "
+    + "Will override the start time from the metafits.",
 )
 @click.option(
     "-i",
     "--int_time",
     type=float,
     help="The integration time (in seconds) of the data being calibrated. "
-    + "Will override the integration time from the metafits, if provided.",
+    + "Will override the integration time from the metafits.",
 )
 @click.option(
     "--fine_res",
     type=float,
-    default=2,
+    default=2.0,
     show_default=True,
     help="The resolution of the integral, in arcmin.",
 )
 @click.option(
     "--coarse_res",
     type=float,
-    default=30,
+    default=30.0,
     show_default=True,
-    help="The resolution of the primary beam map, in arcmin.",
+    help="The resolution of the primary beam map, in arcmin. Must be an integer "
+    + "multiple of --fine_res.",
 )
 @click.option(
     "--min_pbp",
@@ -78,14 +79,14 @@ from mwa_vcs_fluxcal.utils import qty_dict_to_toml
     type=int,
     default=1,
     show_default=True,
-    help="The number of frequency steps to evaluate.",
+    help="The number of frequency steps to simulate.",
 )
 @click.option(
     "--ntime",
     type=int,
     default=1,
     show_default=True,
-    help="The number of time steps to evaluate.",
+    help="The number of time steps to simulate.",
 )
 @click.option(
     "--max_pix_per_job",

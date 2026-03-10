@@ -1,7 +1,8 @@
 # mwa-vcs-fluxcal
-A Python implementation of the MWA tied-array sensitivity simulation method
-developed and described by
-[Meyers et al. (2017)](https://ui.adsabs.harvard.edu/abs/2017ApJ...851...20M).
+A Python implementation of the MWA tied-array beam sensitivity simulation method.
+If you use `mwa-vcs-fluxcal` in your work, please give credit by citing both
+[Meyers et al. (2017)](https://ui.adsabs.harvard.edu/abs/2017ApJ...851...20M)
+and [Lee et al. (2025)](https://ui.adsabs.harvard.edu/abs/2025PASA...42..117L).
 
 # Installation
 The package can be installed as follows:
@@ -9,7 +10,7 @@ The package can be installed as follows:
 pip install git+https://github.com/CIRA-Pulsars-and-Transients-Group/mwa-vcs-fluxcal.git
 ```
 This will install the `mwa_vcs_fluxcal` library and the `fluxcal` command line
-program.
+interface.
 
 # Usage
 
@@ -48,20 +49,20 @@ Options:
                                   scheduled observation start time (the obs
                                   ID) and the start time of the data being
                                   calibrated. Will override the start time
-                                  from the metafits, if provided.
+                                  from the metafits.
   -i, --int_time FLOAT            The integration time (in seconds) of the
                                   data being calibrated. Will override the
-                                  integration time from the metafits, if
-                                  provided.
+                                  integration time from the metafits.
   --fine_res FLOAT                The resolution of the integral, in arcmin.
-                                  [default: 2]
+                                  [default: 2.0]
   --coarse_res FLOAT              The resolution of the primary beam map, in
-                                  arcmin.  [default: 30]
+                                  arcmin. Must be an integer multiple of
+                                  --fine_res.  [default: 30.0]
   --min_pbp FLOAT RANGE           Only integrate above this primary beam
                                   power.  [default: 0.001; 0.0<=x<=1.0]
-  --nfreq INTEGER                 The number of frequency steps to evaluate.
+  --nfreq INTEGER                 The number of frequency steps to simulate.
                                   [default: 1]
-  --ntime INTEGER                 The number of time steps to evaluate.
+  --ntime INTEGER                 The number of time steps to simulate.
                                   [default: 1]
   --max_pix_per_job INTEGER       The maximum number of sky area pixels to
                                   compute per job.  [default: 100000]
@@ -110,8 +111,3 @@ steps. The `--nfreq` and `--ntime` options can be used to select the number of
 uniformly spaced simulations across the bandwidth and integration time. If four
 or more steps are provided for both dimensions, then the `--plot_3d` option can
 be used to generate 3D visualisations using Matplotlib.
-
-# Credit
-If you use `mwa-vcs-fluxcal` in your work, please give credit by citing
-[Meyers et al. (2017)](https://ui.adsabs.harvard.edu/abs/2017ApJ...851...20M)
-and [Lee et al. (2025)](https://ui.adsabs.harvard.edu/abs/2025PASA...42..117L).

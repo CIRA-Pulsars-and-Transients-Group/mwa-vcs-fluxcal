@@ -1,14 +1,10 @@
+########################################################
+# Licensed under the Academic Free License version 3.0 #
+########################################################
+
 from importlib.metadata import version
 
 from matplotlib.pyplot import rcParams
-
-from .constants import *
-from .gridding import *
-from .integral import *
-from .plotting import *
-from .tab import *
-from .temperatures import *
-from .utils import *
 
 __version__ = version(__name__)
 

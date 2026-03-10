@@ -103,7 +103,10 @@ def plot_pulse_profile(
 
 
 def plot_trcvr_vs_freq(
-    trcvr_spline: CubicSpline, fctr: float, df: float, savename: str = "trcvr_vs_freq.png"
+    trcvr_spline: CubicSpline,
+    fctr: float,
+    df: float,
+    savename: str = "trcvr_vs_freq.png",
 ) -> None:
     """Plot the receiver temperature as a function of frequency.
 

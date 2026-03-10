@@ -14,9 +14,6 @@ __all__ = [
     "SKY_TEMP_MAP_FILENAME",
     "RCVR_TEMP_FILENAME",
     "SI_TO_JY",
-    "fc",
-    "eta",
-    "npol",
 ]
 
 # MWA telescope location
@@ -34,8 +31,3 @@ RCVR_TEMP_FILENAME = "data/MWA_Trcvr_tile_56.csv"
 
 # Jansky conversion factor
 SI_TO_JY = 10**26 * u.Jy / (u.W * u.m**-2 * u.Hz**-1)
-
-# Assumptions
-fc = 1.4
-eta = 0.98
-npol = 2

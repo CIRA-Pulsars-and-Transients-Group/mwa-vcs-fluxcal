@@ -11,7 +11,6 @@ from astropy.coordinates import SkyCoord
 from scipy.interpolate import CubicSpline, RegularGridInterpolator
 
 __all__ = [
-    "plot_pulse_profile",
     "plot_trcvr_vs_freq",
     "plot_primary_beam",
     "plot_tied_array_beam",
@@ -20,86 +19,6 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
-
-
-def plot_pulse_profile(
-    profile: np.ndarray,
-    noise_profile: np.ndarray | None,
-    offpulse_std: float | None,
-    ylabel: str = "Flux Density",
-    title: str = None,
-    savename: str = "pulse_profile.png",
-) -> None:
-    """Generate a plot of a pulse profile, indicating the noise level and the
-    offpulse region.
-
-    Parameters
-    ----------
-    profile : `np.ndarray`
-        The pulse profile amplitudes.
-    noise_profile : `np.ndarray`, optional
-        The profile from which the noise was computed. Default: None.
-    offpulse_std : `float`, optional
-        The standard deviation of the offpulse noise. Default: None.
-    ylabel : `str`, optional
-        The y-axis label. Default: "Flux Density".
-    title : `str`, optional
-        A title for the plot. Default: None.
-    savename : `str`, optional
-        The filename to save the plot as. Default: "pulse_profile.png".
-    """
-    num_bin = profile.shape[0]
-    bins = np.arange(num_bin) / (num_bin - 1)
-
-    fig, ax = plt.subplots(figsize=(8, 4), tight_layout=True)
-
-    lw = 0.6
-
-    ax.plot(
-        np.concatenate([bins, bins + 1]),
-        np.concatenate([profile, profile]),
-        color="k",
-        linewidth=lw,
-        zorder=1,
-    )
-
-    if noise_profile is not None:
-        ax.plot(
-            np.concatenate([bins, bins + 1]),
-            np.concatenate([noise_profile, noise_profile]),
-            color="tab:red",
-            linewidth=lw,
-            zorder=2,
-        )
-
-    xlims = [0, 2]
-    ylims = ax.get_ylim()
-
-    if offpulse_std is not None:
-        # Plot the noise baseline and shade the standard deviation
-        ax.axhline(0, linestyle="--", linewidth=lw, color="k")
-        ax.fill_between(
-            xlims,
-            -offpulse_std,
-            offpulse_std,
-            color="k",
-            alpha=0.2,
-            zorder=0,
-        )
-
-    ax.set_xlim(xlims)
-    ax.set_ylim(ylims)
-    ax.minorticks_on()
-    ax.tick_params(axis="both", which="both", right=True, top=True, direction="in")
-    ax.set_xlabel("Pulse Phase")
-    ax.set_ylabel(ylabel)
-    if title is not None:
-        ax.set_title(title)
-
-    logger.info(f"Saving plot file: {savename}")
-    fig.savefig(savename)
-
-    plt.close()
 
 
 def plot_trcvr_vs_freq(

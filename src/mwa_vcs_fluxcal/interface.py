@@ -50,9 +50,17 @@ def simulate_sefd(
     bw = context.obs_bandwidth_hz / 1e6 * u.MHz
     obs_start = Time(context.sched_start_mjd, format="mjd")
     obs_end = Time(context.sched_end_mjd, format="mjd")
-    obs_length = obs_end - obs_start
-    start_time_frac = start_time_offset / obs_length.to(u.s).value
-    end_time_frac = end_time_offset / obs_length.to(u.s).value
+    obs_length = (obs_end - obs_start).to(u.s).round(3)
+    if start_time_offset is None:
+        start_time_offset = 0 * u.s
+    else:
+        start_time_offset *= u.s
+    if end_time_offset is None:
+        end_time_offset = obs_length
+    else:
+        end_time_offset *= u.s
+    start_time_frac = start_time_offset / obs_length
+    end_time_frac = end_time_offset / obs_length
 
     # Input checks
     if end_time_offset < start_time_offset:
@@ -80,17 +88,17 @@ def simulate_sefd(
         exit(1)
 
     # Get frequency information
-    fbot = fctr - bw / 2
-    ftop = fctr + bw / 2
-    logger.info(f"Frequency range: {fbot.to(u.MHz).to_string()} to {ftop.to(u.MHz).to_string()}")
+    fbot = (fctr - bw / 2).to(u.MHz).round(3)
+    ftop = (fctr + bw / 2).to(u.MHz).round(3)
+    logger.info(f"Frequency range (MHz): {fbot.value} to {ftop.value}")
 
     # Get time information
-    start_time = obs_start + start_time_offset * u.s
-    end_time = obs_start + end_time_offset * u.s
-    int_time = (end_time_offset - start_time_offset) * u.s
-    logger.info(f"Time offset range (s): {start_time_offset} to {end_time_offset}")
+    start_time = obs_start + start_time_offset
+    end_time = obs_start + end_time_offset
+    int_time = end_time_offset - start_time_offset
+    logger.info(f"Time offset range (s): {start_time_offset.value} to {end_time_offset.value}")
     logger.info(f"Time range (MJD): {start_time.mjd} to {end_time.mjd}")
-    logger.info(f"Time range (GPS): {start_time.gps} to {end_time.gps}")
+    logger.info(f"Time range (GPS): {start_time.gps:.0f} to {end_time.gps:.0f}")
 
     # Simulation frequencies
     if nfreq == 1:

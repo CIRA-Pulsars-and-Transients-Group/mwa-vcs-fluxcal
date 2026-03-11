@@ -20,7 +20,7 @@ from mwa_vcs_fluxcal.utils import qty_dict_to_toml
     "-L",
     "log_level",
     type=click.Choice(log_levels.keys(), case_sensitive=False),
-    default="INFO",
+    default="info",
     show_default=True,
     help="The logger verbosity level.",
 )
@@ -145,11 +145,15 @@ def main(
     if file_prefix is None:
         file_prefix = target_coords.to_string(style="hmsdms", precision=2).replace(" ", "_")
 
+    end_offset = None
+    if start_offset is not None and int_time is not None:
+        end_offset = start_offset + int_time
+
     results = simulate_sefd(
         metafits,
         target_coords,
         start_offset,
-        start_offset + int_time,
+        end_offset,
         fine_res,
         coarse_res,
         min_pbp,

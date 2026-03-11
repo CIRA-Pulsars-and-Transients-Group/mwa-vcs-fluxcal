@@ -62,8 +62,6 @@ select = [
 ignore = [
     # Ignore unused imports
     "F401",
-    # Ignore wildcard imports
-    "F403",
 ]
 
 [tool.ruff.format]

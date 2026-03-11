@@ -41,7 +41,7 @@ Options:
   -h, --help                      Show this message and exit.
   -V, --version                   Show the version and exit.
   -L [debug|info|warning|error|critical]
-                                  The logger verbosity level.  [default: INFO]
+                                  The logger verbosity level.  [default: info]
   -m, --metafits PATH             An MWA metafits file.
   -t, --target TEXT               The target's RA/Dec in hour/deg units in any
                                   format accepted by SkyCoord.

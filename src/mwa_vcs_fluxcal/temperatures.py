@@ -15,9 +15,14 @@ from healpy.pixelfunc import get_interp_val
 from mwalib import MetafitsContext
 from scipy.interpolate import CubicSpline
 
-from mwa_vcs_fluxcal import RCVR_TEMP_FILENAME, SKY_TEMP_MAP_FILENAME
+from .constants import RCVR_TEMP_FILENAME, SKY_TEMP_MAP_FILENAME
 
-__all__ = ["splineSkyTempAtCoord", "getSkyTempAtCoords", "splineRecieverTemp", "getAmbientTemp"]
+__all__ = [
+    "splineSkyTempAtCoord",
+    "getSkyTempAtCoords",
+    "splineRecieverTemp",
+    "getAmbientTemp",
+]
 
 logger = logging.getLogger(__name__)
 

@@ -11,7 +11,7 @@ from mwalib import MetafitsContext, Pol
 from scipy.spatial import ConvexHull
 from scipy.spatial.distance import cdist
 
-from mwa_vcs_fluxcal import MWA_CENTRE_CABLE_LEN
+from .constants import MWA_CENTRE_CABLE_LEN
 
 __all__ = [
     "getPrimaryBeamPower",

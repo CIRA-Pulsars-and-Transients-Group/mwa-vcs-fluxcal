@@ -1,7 +1,7 @@
 [project]
 name = "mwa_vcs_fluxcal"
-version = "0.0.1"
-description = "A suite of tools to estimate flux densities for pulsar profiles from MWA VCS data."
+version = "0.1.0"
+description = "A suite of tools to estimate the tied-array sensitivity of MWA-VCS observations."
 authors = [
     { name = "Christopher Lee" },
     { name = "Bradley Meyers" },
@@ -23,7 +23,6 @@ dependencies = [
     "scipy",
     "rtoml",
     "enlighten",
-    "psrutils @ git+https://github.com/cplee1/psrutils.git",
 ]
 
 [dependency-groups]
@@ -63,8 +62,6 @@ select = [
 ignore = [
     # Ignore unused imports
     "F401",
-    # Ignore wildcard imports
-    "F403",
 ]
 
 [tool.ruff.format]

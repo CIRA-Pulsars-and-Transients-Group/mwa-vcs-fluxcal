@@ -3,19 +3,17 @@
 ########################################################
 
 import logging
+from typing import Any
 
 import numpy as np
 import rtoml
-from astropy.coordinates import Angle, Latitude, Longitude, SkyCoord
+from astropy.coordinates import Angle, Latitude, Longitude
 from astropy.units import Quantity
-from psrutils import StokesCube, pythonise
 
 __all__ = [
     "log_nan_zeros",
     "pythonise",
     "qty_dict_to_toml",
-    "get_flux_density_uncertainty",
-    "get_offpulse_stats",
 ]
 
 logger = logging.getLogger(__name__)
@@ -38,6 +36,41 @@ def log_nan_zeros(arr: np.ndarray) -> np.ndarray:
     return np.log10(np.where(arr > 0, arr, np.nan))
 
 
+def pythonise(var: Any) -> Any:
+    """Convert numpy types to builtin types.
+
+    Parameters
+    ----------
+    var : Any
+        A number or iterator.
+
+    Returns
+    -------
+    Any
+        The input variable cast into builtin types.
+    """
+    match var:
+        case np.bool_():
+            output = bool(var)
+        case np.integer():
+            output = int(var)
+        case np.floating():
+            output = float(var)
+        case np.str_():
+            output = str(var)
+        case tuple():
+            output = tuple(pythonise(item) for item in var)
+        case list():
+            output = [pythonise(item) for item in var]
+        case dict():
+            output = {key: pythonise(val) for (key, val) in var.items()}
+        case np.ndarray():
+            output = pythonise(var.tolist())
+        case _:
+            output = var
+    return output
+
+
 def qty_dict_to_toml(qty_dict: dict, savename="qty_dict.toml") -> None:
     """Write a dictionary of astropy Quantities to a TOML file.
 
@@ -52,66 +85,13 @@ def qty_dict_to_toml(qty_dict: dict, savename="qty_dict.toml") -> None:
     for key in qty_dict:
         # Store in [value, "unit"] format and ensure all types are native
         if type(qty_dict[key]) in [Quantity, Angle, Longitude, Latitude]:
-            vals_dict[key] = [pythonise(qty_dict[key].value), qty_dict[key].unit.to_string()]
+            vals_dict[key] = [
+                pythonise(qty_dict[key].value),
+                qty_dict[key].unit.to_string(),
+            ]
         elif type(qty_dict[key]) is str:
             vals_dict[key] = [pythonise(qty_dict[key]), "string"]
         else:
             vals_dict[key] = [pythonise(qty_dict[key]), "unitless"]
     with open(savename, "w") as f:
         rtoml.dump(vals_dict, f)
-
-
-def get_flux_density_uncertainty(pulsar_coords: SkyCoord) -> float:
-    """Get the relative uncertainty on the flux density, primarily accounting for the
-    uncertainty on Tsky and the coherency factor (see Lee et al. 2025).
-
-    Parameters
-    ----------
-    pulsar_coords : `SkyCoord`
-        The coordinates of the pulsar.
-
-    Returns
-    -------
-    relative_uncertainty : `float`
-        The relative uncertainty on the flux density.
-    """
-    pulsar_lat = pulsar_coords.galactic.l.deg
-    if abs(pulsar_lat) < 10:
-        return 0.4
-    else:
-        return 0.3
-
-
-# TODO: Make docstring
-def get_offpulse_stats(
-    cube: StokesCube, noise_cube: StokesCube | None = None, savename: str | None = None
-) -> tuple[np.float_, np.float_]:
-    if isinstance(noise_cube, StokesCube):
-        # The mean and standard deviation of the dispersed profile
-        offpulse_mean = np.mean(noise_cube.profile)
-        offpulse_std = np.std(noise_cube.profile)
-    else:
-        # Get the profile as a SplineProfile object to use for analysis
-        profile = cube.spline_profile
-
-        # Find the onpulse using the spline method
-        profile.gridsearch_onpulse_regions()
-
-        # It is important that the baseline is not overestimated, so we use
-        # a simple sliding-window method to find the baseline
-        offpulse_mean = profile.get_simple_noise_stats()[0]
-
-        # We use the standard deviation of the profile residuals to get an
-        # estimate of the profile noise. This approach also works when
-        # there is no offpulse region
-        offpulse_std = profile.noise_est
-
-        if savename is not None:
-            logger.info(f"Saving plot file: {savename}.png")
-            profile.plot_diagnostics(
-                plot_underestimate=False,
-                plot_overestimate=True,
-                sourcename=cube.source,
-                savename=savename,
-            )
-    return offpulse_mean, offpulse_std

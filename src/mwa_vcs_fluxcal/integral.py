@@ -13,8 +13,17 @@ from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.time import Time
 from mwalib import MetafitsContext
 
-import mwa_vcs_fluxcal
-from mwa_vcs_fluxcal import MWA_LOCATION, SI_TO_JY, eta, fc
+from .constants import MWA_LOCATION, SI_TO_JY
+from .gridding import tesellate_primary_beam, upsample_blocks
+from .plotting import plot_sky_images
+from .tab import (
+    calcArrayFactorPower,
+    calcGeometricDelays,
+    extractWorkingTilePositions,
+    getPrimaryBeamPower,
+)
+from .temperatures import getSkyTempAtCoords, splineRecieverTemp
+from .utils import log_nan_zeros
 
 __all__ = ["compute_sky_integrals"]
 
@@ -36,6 +45,8 @@ def compute_sky_integrals(
     plot_tab: bool = False,
     plot_tsky: bool = False,
     plot_integrals: bool = False,
+    fc: float = 1.43,
+    eta: float = 0.98,
     T_amb: u.Quantity = 295.55 * u.K,
     file_prefix: str = "fluxcal",
     pbar_manager: enlighten.Manager | None = None,
@@ -55,7 +66,7 @@ def compute_sky_integrals(
     pulsar_coords_altaz = pulsar_coords.transform_to(altaz_frame)
 
     # Compute the tile positions from the metadata
-    tile_positions = mwa_vcs_fluxcal.extractWorkingTilePositions(context)
+    tile_positions = extractWorkingTilePositions(context)
 
     # Dictionary to store the inputs and outputs of the integral calculation
     results = dict(
@@ -85,7 +96,9 @@ def compute_sky_integrals(
     # We will need to keep track of which pixels correspond to which array
     # indices in the original array
     az_grid_idx_coarse, za_grid_idx_coarse = np.meshgrid(
-        np.arange(az_grid_coarse.shape[0]), np.arange(az_grid_coarse.shape[1]), indexing="ij"
+        np.arange(az_grid_coarse.shape[0]),
+        np.arange(az_grid_coarse.shape[1]),
+        indexing="ij",
     )
 
     # Flatten the masked coarse meshgrid. Since the coarse pixels will be
@@ -103,7 +116,7 @@ def compute_sky_integrals(
     max_blocks_per_job = max_pix_per_job // upscale_ratio
 
     # Receiver temperature
-    T_rec_spline = mwa_vcs_fluxcal.splineRecieverTemp()
+    T_rec_spline = splineRecieverTemp()
     T_rec = T_rec_spline(eval_freqs.to(u.MHz).value) * u.K
     results["T_rec"] = T_rec
 
@@ -116,7 +129,7 @@ def compute_sky_integrals(
         logger.info(f"Frequency {ii}: {freq_val:.2f} MHz")
 
         # Define a "look" vector pointing towards the pulsar
-        look_psi = mwa_vcs_fluxcal.calcGeometricDelays(
+        look_psi = calcGeometricDelays(
             tile_positions,
             eval_freqs[ii].to(u.Hz).value,
             pulsar_coords_altaz.alt.rad,
@@ -124,13 +137,13 @@ def compute_sky_integrals(
         ).T
 
         # Compute the primary beam power
-        grid_pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
+        grid_pbp = getPrimaryBeamPower(
             context, eval_freqs[ii].to(u.Hz).value, alt_grid_coarse, az_grid_coarse
         )["I"].reshape(az_grid_coarse.shape)
 
         # Create a mask selecting the coarse pixels covering the primary beam
         if min_pbp > 0.0:
-            pb_mask = mwa_vcs_fluxcal.tesellate_primary_beam(
+            pb_mask = tesellate_primary_beam(
                 az_grid_coarse,
                 za_grid_coarse,
                 grid_pbp,
@@ -199,14 +212,14 @@ def compute_sky_integrals(
             num_blocks_inbeam_job = az_job[~pb_mask_job].size
 
             # Compute the fine pixel coordinates
-            az_fine, za_fine = mwa_vcs_fluxcal.upsample_blocks(
+            az_fine, za_fine = upsample_blocks(
                 az_job, za_job, coarse_grid_res.radian, fine_grid_res.radian
             )
             alt_fine = np.pi / 2 - za_fine
 
             # Define a grid of "target" vectors pointing towards each pixel
             bench_t0 = pc()
-            target_psi = mwa_vcs_fluxcal.calcGeometricDelays(
+            target_psi = calcGeometricDelays(
                 tile_positions,
                 eval_freqs[ii].to(u.Hz).value,
                 alt_fine,
@@ -217,7 +230,7 @@ def compute_sky_integrals(
             # Calculate the array factor power (Eq 11 of M+17)
             # afp will have shape (ntime,npixels)
             bench_t0 = pc()
-            afp = mwa_vcs_fluxcal.calcArrayFactorPower(look_psi, target_psi)
+            afp = calcArrayFactorPower(look_psi, target_psi)
             logger.debug(f"Computing afp took {pc() - bench_t0} s")
 
             # Reshape the flattened arrays into (nblocks,pixels_per_block) so
@@ -264,7 +277,7 @@ def compute_sky_integrals(
 
             # Calculate the primary beam power for each pixel in the job
             bench_t0 = pc()
-            pbp = mwa_vcs_fluxcal.getPrimaryBeamPower(
+            pbp = getPrimaryBeamPower(
                 context, eval_freqs[ii].to(u.Hz).value, alt_fine_inbeam, az_fine_inbeam
             )["I"]
             logger.debug(f"Computing PB took {pc() - bench_t0} s")
@@ -281,9 +294,7 @@ def compute_sky_integrals(
                     location=MWA_LOCATION,
                     obstime=eval_times[kk],
                 )
-                tsky[kk, :] = mwa_vcs_fluxcal.getSkyTempAtCoords(
-                    pix_coords, eval_freqs[ii].to(u.MHz).value
-                )
+                tsky[kk, :] = getSkyTempAtCoords(pix_coords, eval_freqs[ii].to(u.MHz).value)
 
                 # Calculate the tied-array beam power (Eq 12 of M+17)
                 # afp has shape (ntime,npixels) and pbp has shape (npixels,)
@@ -326,13 +337,13 @@ def compute_sky_integrals(
         if plot_images:
             for tt in range(ntime):
                 if plot_tab:
-                    mwa_vcs_fluxcal.plot_sky_images(
+                    plot_sky_images(
                         az_grid_coarse,
                         za_grid_coarse,
                         [
-                            mwa_vcs_fluxcal.log_nan_zeros(afp_coarse[tt]),
-                            mwa_vcs_fluxcal.log_nan_zeros(pbp_coarse),
-                            mwa_vcs_fluxcal.log_nan_zeros(tabp_coarse[tt]),
+                            log_nan_zeros(afp_coarse[tt]),
+                            log_nan_zeros(pbp_coarse),
+                            log_nan_zeros(tabp_coarse[tt]),
                         ],
                         [
                             "$\log_{10}[|f(\\theta,\phi)|^2]$",
@@ -343,13 +354,13 @@ def compute_sky_integrals(
                         savename=f"{file_prefix}_log_beam_images_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
                     )
                 if plot_integrals:
-                    mwa_vcs_fluxcal.plot_sky_images(
+                    plot_sky_images(
                         az_grid_coarse,
                         za_grid_coarse,
                         [
-                            mwa_vcs_fluxcal.log_nan_zeros(int_afp_coarse[tt]),
-                            mwa_vcs_fluxcal.log_nan_zeros(int_B_T_coarse[tt]),
-                            mwa_vcs_fluxcal.log_nan_zeros(int_B_coarse[tt]),
+                            log_nan_zeros(int_afp_coarse[tt]),
+                            log_nan_zeros(int_B_T_coarse[tt]),
+                            log_nan_zeros(int_B_coarse[tt]),
                         ],
                         [
                             "$\log_{10}[|f(\\theta,\phi)|^2\,\mathrm{d}\Omega]$",
@@ -361,10 +372,10 @@ def compute_sky_integrals(
                         savename=f"{file_prefix}_log_integral_images_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
                     )
                 if plot_tsky:
-                    mwa_vcs_fluxcal.plot_sky_images(
+                    plot_sky_images(
                         az_grid_coarse,
                         za_grid_coarse,
-                        [mwa_vcs_fluxcal.log_nan_zeros(tsky_coarse[tt])],
+                        [log_nan_zeros(tsky_coarse[tt])],
                         ["$\mathrm{log}_{10}\,T_\mathrm{sky}$ [K]"],
                         pulsar_coords_altaz[tt],
                         savename=f"{file_prefix}_log_tsky_image_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",

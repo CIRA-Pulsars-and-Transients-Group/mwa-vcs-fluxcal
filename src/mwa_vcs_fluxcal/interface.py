@@ -59,20 +59,20 @@ def simulate_sefd(
         end_time_offset = obs_length
     else:
         end_time_offset *= u.s
-    start_time_frac = start_time_offset / obs_length
-    end_time_frac = end_time_offset / obs_length
 
     # Input checks
     if end_time_offset < start_time_offset:
         raise ValueError("Start time offset must proceed end time offset.")
-    if start_time_frac < 0.0 or start_time_frac > 1.0:
-        raise ValueError(
-            f"Fractional start time must be in the range [0,1] (provided {start_time_frac})."
-        )
-    if end_time_frac < 0.0 or end_time_frac > 1.0:
-        raise ValueError(
-            f"Fractional end time must be in the range [0,1] (provided {end_time_frac})."
-        )
+    # start_time_frac = start_time_offset / obs_length
+    # if start_time_frac < 0.0 or start_time_frac > 1.0:
+    #     raise ValueError(
+    #         f"Fractional start time must be in the range [0,1] (provided {start_time_frac})."
+    #     )
+    # end_time_frac = end_time_offset / obs_length
+    # if end_time_frac < 0.0 or end_time_frac > 1.0:
+    #     raise ValueError(
+    #         f"Fractional end time must be in the range [0,1] (provided {end_time_frac})."
+    #     )
     if min_pbp < 0.0 or min_pbp >= 1:
         raise ValueError(f"Primary beam power must in the range [0,1) (provided {min_pbp}).")
     if fc < 1.0:

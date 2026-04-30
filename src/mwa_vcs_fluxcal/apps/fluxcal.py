@@ -89,6 +89,18 @@ from mwa_vcs_fluxcal.utils import qty_dict_to_toml
     help="The number of time steps to simulate.",
 )
 @click.option(
+    "--freq_list",
+    type=str,
+    show_default=True,
+    help="A comma-separated list of frequencies to simulate (in MHz).",
+)
+@click.option(
+    "--time_list",
+    type=str,
+    show_default=True,
+    help="A comma-separated list of times to simulate (in sec relative to the obs ID).",
+)
+@click.option(
     "--max_pix_per_job",
     type=int,
     default=10**5,
@@ -127,6 +139,8 @@ def main(
     min_pbp: float,
     nfreq: int,
     ntime: int,
+    freq_list: str | None,
+    time_list: str | None,
     max_pix_per_job: int,
     fc: float,
     eta: float,
@@ -149,6 +163,16 @@ def main(
     if start_offset is not None and int_time is not None:
         end_offset = start_offset + int_time
 
+    if isinstance(freq_list, str):
+        freqs = [float(freq) for freq in freq_list.split(",")]
+    else:
+        freqs = nfreq
+
+    if isinstance(time_list, str):
+        times = [float(freq) for freq in time_list.split(",")]
+    else:
+        times = ntime
+
     results = simulate_sefd(
         metafits,
         target_coords,
@@ -157,8 +181,8 @@ def main(
         fine_res,
         coarse_res,
         min_pbp,
-        nfreq,
-        ntime,
+        freqs,
+        times,
         max_pix_per_job,
         fc,
         eta,

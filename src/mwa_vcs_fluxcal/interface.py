@@ -28,8 +28,8 @@ def simulate_sefd(
     fine_grid_res: float = 2.0,
     coarse_grid_res: float = 30.0,
     min_pbp: float = 0.001,
-    nfreq: int = 1,
-    ntime: int = 1,
+    freqs: int | list[float] = 1,
+    times: int | list[float] = 1,
     max_pix_per_job: int = int(10**5),
     fc: float = 1.43,
     eta: float = 0.98,
@@ -101,18 +101,26 @@ def simulate_sefd(
     logger.info(f"Time range (GPS): {start_time.gps:.0f} to {end_time.gps:.0f}")
 
     # Simulation frequencies
-    if nfreq == 1:
+    if isinstance(freqs, list):
+        eval_freqs = np.array(freqs) * u.MHz
+    elif isinstance(freqs, int) and freqs == 1:
         eval_freqs = np.array([fctr.to(u.MHz).value]) * u.MHz
+    elif isinstance(freqs, int):
+        eval_freqs = np.linspace(fbot.to(u.MHz).value, ftop.to(u.MHz).value, freqs) * u.MHz
     else:
-        eval_freqs = np.linspace(fbot.to(u.MHz).value, ftop.to(u.MHz).value, nfreq) * u.MHz
-    logger.info(f"Evaluating at {nfreq} frequencies: {eval_freqs}")
+        logger.critical(f"Invalid simulation frequency specification: {freqs}")
+    logger.info(f"Simulating at {len(eval_freqs)} frequencies: {eval_freqs}")
 
     # Simulation times relative to time t0
-    if ntime == 1:
+    if isinstance(times, list):
+        eval_offsets = np.array(times) * u.s
+    elif isinstance(times, int) and times == 1:
         eval_offsets = np.array([int_time.to(u.s).value / 2]) * u.s
+    elif isinstance(times, int):
+        eval_offsets = np.linspace(0, int_time.to(u.s).value, times) * u.s
     else:
-        eval_offsets = np.linspace(0, int_time.to(u.s).value, ntime) * u.s
-    logger.info(f"Evaluating at {ntime} offsets: {eval_offsets}")
+        logger.critical(f"Invalid simulation time specification: {times}")
+    logger.info(f"Simulating at {len(eval_offsets)} offsets: {eval_offsets}")
 
     if plot_trec:
         # Plot the receiver temperature vs frequency
@@ -148,7 +156,7 @@ def simulate_sefd(
             pbar_manager=manager,
         )
 
-    if plot_3d and nfreq >= 4 and ntime >= 4:
+    if plot_3d and len(eval_freqs) >= 4 and len(eval_offsets) >= 4:
         # Fit a 2D spline to show the freq/time scaling of T_sys, gain, and SEFD
         plot_3d_result(
             eval_offsets.to(u.s).value,

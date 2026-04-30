@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 def simulate_sefd(
     metafits: str,
     target_coords: SkyCoord,
-    start_time_offset: float,
-    end_time_offset: float,
+    start_time_offset: float | None,
+    end_time_offset: float | None,
     fine_grid_res: float = 2.0,
     coarse_grid_res: float = 30.0,
     min_pbp: float = 0.001,

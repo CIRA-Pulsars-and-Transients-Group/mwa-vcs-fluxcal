@@ -30,12 +30,14 @@ from mwa_vcs_fluxcal.utils import qty_dict_to_toml
     "metafits",
     type=click.Path(exists=True),
     help="An MWA metafits file.",
+    required=True,
 )
 @click.option(
     "-t",
     "--target",
     type=str,
     help="The target's RA/Dec in hour/deg units in any format accepted by SkyCoord.",
+    required=True,
 )
 @click.option(
     "-s",
@@ -98,7 +100,7 @@ from mwa_vcs_fluxcal.utils import qty_dict_to_toml
     "--time_list",
     type=str,
     show_default=True,
-    help="A comma-separated list of times to simulate (in sec relative to the obs ID).",
+    help="A comma-separated list of times to simulate (in sec relative to the start time).",
 )
 @click.option(
     "--max_pix_per_job",
@@ -132,8 +134,8 @@ def main(
     log_level: str,
     metafits: str,
     target: str,
-    start_offset: float,
-    int_time: float,
+    start_offset: float | None,
+    int_time: float | None,
     fine_res: float,
     coarse_res: float,
     min_pbp: float,

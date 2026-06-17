@@ -130,6 +130,7 @@ from mwa_vcs_fluxcal.utils import qty_dict_to_toml
 @click.option("--plot_tsky", is_flag=True, help="Plot sky temperature in Alt/Az.")
 @click.option("--plot_integrals", is_flag=True, help="Plot the integral quantities in Alt/Az.")
 @click.option("--plot_3d", is_flag=True, help="Plot the results in 3D (time,freq,data).")
+@click.option("--extra_tile_flags", type=str, help="A comma-separated list of tile names to flag.")
 def main(
     log_level: str,
     metafits: str,
@@ -153,6 +154,7 @@ def main(
     plot_tsky: bool,
     plot_integrals: bool,
     plot_3d: bool,
+    extra_tile_flags: list[str] | None,
 ) -> None:
     setup_logger("mwa_vcs_fluxcal", log_level)
 
@@ -175,26 +177,30 @@ def main(
     else:
         times = ntime
 
+    if isinstance(extra_tile_flags, str):
+        extra_tile_flags = extra_tile_flags.split(",")
+
     results = simulate_sefd(
-        metafits,
-        target_coords,
-        start_offset,
-        end_offset,
-        fine_res,
-        coarse_res,
-        min_pbp,
-        freqs,
-        times,
-        max_pix_per_job,
-        fc,
-        eta,
-        plot_trec,
-        plot_pb,
-        plot_tab,
-        plot_tsky,
-        plot_integrals,
-        plot_3d,
-        file_prefix,
+        metafits=metafits,
+        target_coords=target_coords,
+        start_time_offset=start_offset,
+        end_time_offset=end_offset,
+        fine_grid_res=fine_res,
+        coarse_grid_res=coarse_res,
+        min_pbp=min_pbp,
+        freqs=freqs,
+        times=times,
+        max_pix_per_job=max_pix_per_job,
+        fc=fc,
+        eta=eta,
+        plot_trec=plot_trec,
+        plot_pb=plot_pb,
+        plot_tab=plot_tab,
+        plot_tsky=plot_tsky,
+        plot_integrals=plot_integrals,
+        plot_3d=plot_3d,
+        extra_tile_flags=extra_tile_flags,
+        file_prefix=file_prefix,
     )
 
     qty_dict_to_toml(results, f"{file_prefix}_fluxcal_results.toml")

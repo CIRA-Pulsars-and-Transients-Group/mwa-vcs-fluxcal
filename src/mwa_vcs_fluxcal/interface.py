@@ -39,6 +39,7 @@ def simulate_sefd(
     plot_tsky: bool = False,
     plot_integrals: bool = False,
     plot_3d: bool = False,
+    extra_tile_flags: list[str] | None = None,
     file_prefix: str = "sim",
 ) -> dict[str, u.Quantity]:
     # Load metadata
@@ -152,6 +153,7 @@ def simulate_sefd(
             fc=fc,
             eta=eta,
             T_amb=T_amb,
+            extra_tile_flags=extra_tile_flags,
             file_prefix=file_prefix,
             pbar_manager=manager,
         )

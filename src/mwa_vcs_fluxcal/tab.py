@@ -143,7 +143,9 @@ def getPrimaryBeamPower(
     return stokes_response
 
 
-def extractWorkingTilePositions(metadata: MetafitsContext) -> np.ndarray:
+def extractWorkingTilePositions(
+    metadata: MetafitsContext, extra_tile_flags: list[str] | None = None
+) -> np.ndarray:
     """Extract tile position information required for beamforming and/or
     computing the array factor quantity from a metafits structure.
     Flagged tiles are automatically excluded from the result.
@@ -151,6 +153,8 @@ def extractWorkingTilePositions(metadata: MetafitsContext) -> np.ndarray:
     :param metadata: An MWALIB MetafitsContext structure
                      containing the array layout information.
     :type metadata: MetafitsContext
+    :param extra_tile_flags: Names of extra tiles to flag.
+    :type tile_flags: list[str], None
     :return: Working tile positions and electrical lengths for
              beamforming. Formatted as an array of arrays, where
              each item in the outer array is:
@@ -174,9 +178,17 @@ def extractWorkingTilePositions(metadata: MetafitsContext) -> np.ndarray:
         ]
     )
 
-    # Gather the flagged tile information from the metafits information
+    # Gather the flagged tiles from the metafits and the extra tiles list
     # and remove those tiles from the above vector
     tile_flags = np.array([rf.flagged for rf in metadata.rf_inputs if rf.pol == Pol.X])
+    if extra_tile_flags is not None:
+        itile = 0
+        for rf in metadata.rf_inputs:
+            if rf.pol != Pol.X:
+                continue
+            if rf.tile_name in extra_tile_flags:
+                tile_flags[itile] = True
+            itile += 1
     tile_positions = np.delete(tile_positions, np.where(tile_flags), axis=0)
 
     return tile_positions

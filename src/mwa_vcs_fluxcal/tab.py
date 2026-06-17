@@ -153,7 +153,7 @@ def extractWorkingTilePositions(
     :param metadata: An MWALIB MetafitsContext structure
                      containing the array layout information.
     :type metadata: MetafitsContext
-    :param extra_tile_flags: Names of extra tiles to flag.
+    :param extra_tile_flags: Names or IDs of extra tiles to flag.
     :type tile_flags: list[str], None
     :return: Working tile positions and electrical lengths for
              beamforming. Formatted as an array of arrays, where
@@ -186,7 +186,7 @@ def extractWorkingTilePositions(
         for rf in metadata.rf_inputs:
             if rf.pol != Pol.X:
                 continue
-            if rf.tile_name in extra_tile_flags:
+            if rf.tile_name in extra_tile_flags or str(rf.tile_id) in extra_tile_flags:
                 tile_flags[itile] = True
             itile += 1
     tile_positions = np.delete(tile_positions, np.where(tile_flags), axis=0)

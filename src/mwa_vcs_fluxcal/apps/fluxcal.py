@@ -2,15 +2,47 @@
 # Licensed under the Academic Free License version 3.0 #
 ########################################################
 
-# TODO: Get the additional flagged tiles from the calibration solution
-
 import click
 from astropy.coordinates import SkyCoord
+from mwalib import MetafitsContext, Pol
 
 from mwa_vcs_fluxcal import __version__
 from mwa_vcs_fluxcal.interface import simulate_sefd
 from mwa_vcs_fluxcal.logger import log_levels, setup_logger
 from mwa_vcs_fluxcal.utils import qty_dict_to_toml
+
+
+def difference_bad_tiles(metadata: MetafitsContext, cal_metadata: MetafitsContext) -> list[str]:
+    """Get a list of names for tiles that are flagged in the calibration
+    observation metadata but not in the beamformed observation metadata.
+
+    Parameters
+    ----------
+    metadata : `MetafitsContext`
+        The beamformed observation metadata.
+    cal_metadata : `MetafitsContext`
+        The calibration observation metadata.
+
+    Returns
+    -------
+    extra_tile_flags : `str`
+        A list of names of extra flagged tiles.
+    """
+    base_meta = MetafitsContext(metadata)
+    cal_meta = MetafitsContext(cal_metadata)
+    bad_tile_names = []
+    for rf in base_meta.rf_inputs:
+        if rf.pol != Pol.X:
+            continue
+        if rf.flagged:
+            bad_tile_names.append(rf.tile_name)
+    extra_tile_flags = []
+    for rf in cal_meta.rf_inputs:
+        if rf.pol != Pol.X:
+            continue
+        if rf.flagged and rf.tile_name not in bad_tile_names:
+            extra_tile_flags.append(rf.tile_name)
+    return extra_tile_flags
 
 
 @click.command()
@@ -29,7 +61,7 @@ from mwa_vcs_fluxcal.utils import qty_dict_to_toml
     "--metafits",
     "metafits",
     type=click.Path(exists=True),
-    help="An MWA metafits file.",
+    help="A metafits file for the beamformed observation.",
     required=True,
 )
 @click.option(
@@ -130,7 +162,14 @@ from mwa_vcs_fluxcal.utils import qty_dict_to_toml
 @click.option("--plot_tsky", is_flag=True, help="Plot sky temperature in Alt/Az.")
 @click.option("--plot_integrals", is_flag=True, help="Plot the integral quantities in Alt/Az.")
 @click.option("--plot_3d", is_flag=True, help="Plot the results in 3D (time,freq,data).")
-@click.option("--extra_tile_flags", type=str, help="A comma-separated list of tile names to flag.")
+@click.option(
+    "--extra_tile_flags", type=str, help="A comma-separated list of tile names or IDs to flag."
+)
+@click.option(
+    "--cal_metafits",
+    type=click.Path(exists=True),
+    help="A metafits file for a calibration observation to use for getting extra flagged tiles.",
+)
 def main(
     log_level: str,
     metafits: str,
@@ -155,6 +194,7 @@ def main(
     plot_integrals: bool,
     plot_3d: bool,
     extra_tile_flags: list[str] | None,
+    cal_metafits: str,
 ) -> None:
     setup_logger("mwa_vcs_fluxcal", log_level)
 
@@ -179,6 +219,13 @@ def main(
 
     if isinstance(extra_tile_flags, str):
         extra_tile_flags = extra_tile_flags.split(",")
+
+    if isinstance(cal_metafits, str):
+        diff_tile_flags = difference_bad_tiles(metafits, cal_metafits)
+        if isinstance(extra_tile_flags, list):
+            extra_tile_flags += diff_tile_flags
+        else:
+            extra_tile_flags = diff_tile_flags
 
     results = simulate_sefd(
         metafits=metafits,

@@ -15,6 +15,7 @@ from .constants import MWA_CENTRE_CABLE_LEN
 
 __all__ = [
     "getPrimaryBeamPower",
+    "difference_bad_tiles",
     "extractWorkingTilePositions",
     "calcGeometricDelays",
     "calcArrayFactorPower",
@@ -141,6 +142,39 @@ def getPrimaryBeamPower(
         )
 
     return stokes_response
+
+
+def difference_bad_tiles(metadata: MetafitsContext, cal_metadata: MetafitsContext) -> list[str]:
+    """Get a list of names for tiles that are flagged in the calibration
+    observation metadata but not in the beamformed observation metadata.
+
+    Parameters
+    ----------
+    metadata : `MetafitsContext`
+        The beamformed observation metadata.
+    cal_metadata : `MetafitsContext`
+        The calibration observation metadata.
+
+    Returns
+    -------
+    extra_tile_flags : `str`
+        A list of names of extra flagged tiles.
+    """
+    base_meta = MetafitsContext(metadata)
+    cal_meta = MetafitsContext(cal_metadata)
+    bad_tile_names = []
+    for rf in base_meta.rf_inputs:
+        if rf.pol != Pol.X:
+            continue
+        if rf.flagged:
+            bad_tile_names.append(rf.tile_name)
+    extra_tile_flags = []
+    for rf in cal_meta.rf_inputs:
+        if rf.pol != Pol.X:
+            continue
+        if rf.flagged and rf.tile_name not in bad_tile_names:
+            extra_tile_flags.append(rf.tile_name)
+    return extra_tile_flags
 
 
 def extractWorkingTilePositions(

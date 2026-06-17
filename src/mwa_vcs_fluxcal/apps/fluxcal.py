@@ -4,45 +4,11 @@
 
 import click
 from astropy.coordinates import SkyCoord
-from mwalib import MetafitsContext, Pol
 
 from mwa_vcs_fluxcal import __version__
 from mwa_vcs_fluxcal.interface import simulate_sefd
 from mwa_vcs_fluxcal.logger import log_levels, setup_logger
 from mwa_vcs_fluxcal.utils import qty_dict_to_toml
-
-
-def difference_bad_tiles(metadata: MetafitsContext, cal_metadata: MetafitsContext) -> list[str]:
-    """Get a list of names for tiles that are flagged in the calibration
-    observation metadata but not in the beamformed observation metadata.
-
-    Parameters
-    ----------
-    metadata : `MetafitsContext`
-        The beamformed observation metadata.
-    cal_metadata : `MetafitsContext`
-        The calibration observation metadata.
-
-    Returns
-    -------
-    extra_tile_flags : `str`
-        A list of names of extra flagged tiles.
-    """
-    base_meta = MetafitsContext(metadata)
-    cal_meta = MetafitsContext(cal_metadata)
-    bad_tile_names = []
-    for rf in base_meta.rf_inputs:
-        if rf.pol != Pol.X:
-            continue
-        if rf.flagged:
-            bad_tile_names.append(rf.tile_name)
-    extra_tile_flags = []
-    for rf in cal_meta.rf_inputs:
-        if rf.pol != Pol.X:
-            continue
-        if rf.flagged and rf.tile_name not in bad_tile_names:
-            extra_tile_flags.append(rf.tile_name)
-    return extra_tile_flags
 
 
 @click.command()
@@ -220,13 +186,6 @@ def main(
     if isinstance(extra_tile_flags, str):
         extra_tile_flags = extra_tile_flags.split(",")
 
-    if isinstance(cal_metafits, str):
-        diff_tile_flags = difference_bad_tiles(metafits, cal_metafits)
-        if isinstance(extra_tile_flags, list):
-            extra_tile_flags += diff_tile_flags
-        else:
-            extra_tile_flags = diff_tile_flags
-
     results = simulate_sefd(
         metafits=metafits,
         target_coords=target_coords,
@@ -247,6 +206,7 @@ def main(
         plot_integrals=plot_integrals,
         plot_3d=plot_3d,
         extra_tile_flags=extra_tile_flags,
+        cal_metafits=cal_metafits,
         file_prefix=file_prefix,
     )
 

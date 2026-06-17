@@ -6,13 +6,14 @@ import logging
 
 import astropy.units as u
 import enlighten
-import mwalib
 import numpy as np
 from astropy.coordinates import Angle, SkyCoord
 from astropy.time import Time
+from mwalib import MetafitsContext
 
 from .integral import compute_sky_integrals
 from .plotting import plot_3d_result, plot_trcvr_vs_freq
+from .tab import difference_bad_tiles
 from .temperatures import getAmbientTemp, splineRecieverTemp
 
 __all__ = ["simulate_sefd"]
@@ -40,11 +41,20 @@ def simulate_sefd(
     plot_integrals: bool = False,
     plot_3d: bool = False,
     extra_tile_flags: list[str] | None = None,
+    cal_metafits: str | None = None,
     file_prefix: str = "sim",
 ) -> dict[str, u.Quantity]:
+    # Get extra tile flags from calibration observation metafits
+    if isinstance(cal_metafits, str):
+        diff_tile_flags = difference_bad_tiles(metafits, cal_metafits)
+        if isinstance(extra_tile_flags, list):
+            extra_tile_flags += diff_tile_flags
+        else:
+            extra_tile_flags = diff_tile_flags
+
     # Load metadata
     logger.info(f"Loading metafits file: {metafits}")
-    context = mwalib.MetafitsContext(metafits)
+    context = MetafitsContext(metafits)
     T_amb = getAmbientTemp(metafits)
     chan_freqs_hz = context.metafits_fine_chan_freqs_hz
     fctr = (np.min(chan_freqs_hz) + np.max(chan_freqs_hz)) / 2 / 1e6 * u.MHz

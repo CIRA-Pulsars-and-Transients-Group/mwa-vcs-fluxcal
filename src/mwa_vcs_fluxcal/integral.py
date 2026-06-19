@@ -48,6 +48,7 @@ def compute_sky_integrals(
     fc: float = 1.43,
     eta: float = 0.98,
     T_amb: u.Quantity = 295.55 * u.K,
+    extra_tile_flags: list[str] | None = None,
     file_prefix: str = "fluxcal",
     pbar_manager: enlighten.Manager | None = None,
 ) -> dict[str, u.Quantity]:
@@ -66,7 +67,8 @@ def compute_sky_integrals(
     pulsar_coords_altaz = pulsar_coords.transform_to(altaz_frame)
 
     # Compute the tile positions from the metadata
-    tile_positions = extractWorkingTilePositions(context)
+    tile_positions = extractWorkingTilePositions(context, extra_tile_flags=extra_tile_flags)
+    logger.info(f"Using {tile_positions.shape[0]} good tiles")
 
     # Dictionary to store the inputs and outputs of the integral calculation
     results = dict(

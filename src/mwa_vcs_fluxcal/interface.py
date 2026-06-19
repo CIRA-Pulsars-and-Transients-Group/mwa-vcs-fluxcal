@@ -6,13 +6,14 @@ import logging
 
 import astropy.units as u
 import enlighten
-import mwalib
 import numpy as np
 from astropy.coordinates import Angle, SkyCoord
 from astropy.time import Time
+from mwalib import MetafitsContext
 
 from .integral import compute_sky_integrals
 from .plotting import plot_3d_result, plot_trcvr_vs_freq
+from .tab import difference_bad_tiles
 from .temperatures import getAmbientTemp, splineRecieverTemp
 
 __all__ = ["simulate_sefd"]
@@ -23,13 +24,13 @@ logger = logging.getLogger(__name__)
 def simulate_sefd(
     metafits: str,
     target_coords: SkyCoord,
-    start_time_offset: float,
-    end_time_offset: float,
+    start_time_offset: float | None,
+    end_time_offset: float | None,
     fine_grid_res: float = 2.0,
     coarse_grid_res: float = 30.0,
     min_pbp: float = 0.001,
-    nfreq: int = 1,
-    ntime: int = 1,
+    freqs: int | list[float] = 1,
+    times: int | list[float] = 1,
     max_pix_per_job: int = int(10**5),
     fc: float = 1.43,
     eta: float = 0.98,
@@ -39,11 +40,21 @@ def simulate_sefd(
     plot_tsky: bool = False,
     plot_integrals: bool = False,
     plot_3d: bool = False,
+    extra_tile_flags: list[str] | None = None,
+    cal_metafits: str | None = None,
     file_prefix: str = "sim",
 ) -> dict[str, u.Quantity]:
+    # Get extra tile flags from calibration observation metafits
+    if isinstance(cal_metafits, str):
+        diff_tile_flags = difference_bad_tiles(metafits, cal_metafits)
+        if isinstance(extra_tile_flags, list):
+            extra_tile_flags += diff_tile_flags
+        else:
+            extra_tile_flags = diff_tile_flags
+
     # Load metadata
     logger.info(f"Loading metafits file: {metafits}")
-    context = mwalib.MetafitsContext(metafits)
+    context = MetafitsContext(metafits)
     T_amb = getAmbientTemp(metafits)
     chan_freqs_hz = context.metafits_fine_chan_freqs_hz
     fctr = (np.min(chan_freqs_hz) + np.max(chan_freqs_hz)) / 2 / 1e6 * u.MHz
@@ -101,18 +112,26 @@ def simulate_sefd(
     logger.info(f"Time range (GPS): {start_time.gps:.0f} to {end_time.gps:.0f}")
 
     # Simulation frequencies
-    if nfreq == 1:
+    if isinstance(freqs, list):
+        eval_freqs = np.array(freqs) * u.MHz
+    elif isinstance(freqs, int) and freqs == 1:
         eval_freqs = np.array([fctr.to(u.MHz).value]) * u.MHz
+    elif isinstance(freqs, int):
+        eval_freqs = np.linspace(fbot.to(u.MHz).value, ftop.to(u.MHz).value, freqs) * u.MHz
     else:
-        eval_freqs = np.linspace(fbot.to(u.MHz).value, ftop.to(u.MHz).value, nfreq) * u.MHz
-    logger.info(f"Evaluating at {nfreq} frequencies: {eval_freqs}")
+        logger.critical(f"Invalid simulation frequency specification: {freqs}")
+    logger.info(f"Simulating at {len(eval_freqs)} frequencies: {eval_freqs}")
 
     # Simulation times relative to time t0
-    if ntime == 1:
+    if isinstance(times, list):
+        eval_offsets = np.array(times) * u.s
+    elif isinstance(times, int) and times == 1:
         eval_offsets = np.array([int_time.to(u.s).value / 2]) * u.s
+    elif isinstance(times, int):
+        eval_offsets = np.linspace(0, int_time.to(u.s).value, times) * u.s
     else:
-        eval_offsets = np.linspace(0, int_time.to(u.s).value, ntime) * u.s
-    logger.info(f"Evaluating at {ntime} offsets: {eval_offsets}")
+        logger.critical(f"Invalid simulation time specification: {times}")
+    logger.info(f"Simulating at {len(eval_offsets)} offsets: {eval_offsets}")
 
     if plot_trec:
         # Plot the receiver temperature vs frequency
@@ -144,11 +163,12 @@ def simulate_sefd(
             fc=fc,
             eta=eta,
             T_amb=T_amb,
+            extra_tile_flags=extra_tile_flags,
             file_prefix=file_prefix,
             pbar_manager=manager,
         )
 
-    if plot_3d and nfreq >= 4 and ntime >= 4:
+    if plot_3d and len(eval_freqs) >= 4 and len(eval_offsets) >= 4:
         # Fit a 2D spline to show the freq/time scaling of T_sys, gain, and SEFD
         plot_3d_result(
             eval_offsets.to(u.s).value,

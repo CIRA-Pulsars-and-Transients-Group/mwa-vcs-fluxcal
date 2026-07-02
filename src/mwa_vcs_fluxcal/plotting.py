@@ -215,7 +215,7 @@ def plot_sky_images(
                 other_target_coords.az.radian,
                 np.pi / 2 - other_target_coords.alt.radian,
                 linestyle="none",
-                marker="o",
+                marker="D",
                 color="lime",
                 ms=3,
                 mfc="none",

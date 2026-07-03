@@ -30,30 +30,33 @@ __all__ = ["compute_sky_integrals"]
 logger = logging.getLogger(__name__)
 
 
-# TODO: Make docstring
 def compute_sky_integrals(
     context: MetafitsContext,
     start_time: Time,
     eval_offsets: u.Quantity,
     eval_freqs: u.Quantity,
-    pulsar_coords: SkyCoord,
+    target_coords: SkyCoord,
     fine_grid_res: Angle,
     coarse_grid_res: Angle,
     min_pbp: float,
     max_pix_per_job: int = 10**5,
     plot_pb: bool = False,
+    plot_pb_cutout: bool = False,
     plot_tab: bool = False,
+    plot_tab_triptych: bool = False,
     plot_tsky: bool = False,
     plot_integrals: bool = False,
+    plot_ext: str = "webp",
     fc: float = 1.43,
     eta: float = 0.98,
     T_amb: u.Quantity = 295.55 * u.K,
+    other_target_coords: SkyCoord | None = None,
     extra_tile_flags: list[str] | None = None,
     file_prefix: str = "fluxcal",
     pbar_manager: enlighten.Manager | None = None,
 ) -> dict[str, u.Quantity]:
     # Making these plots uses some extra memory
-    if plot_tab or plot_tsky or plot_integrals:
+    if plot_tab or plot_tab_triptych or plot_integrals or plot_tsky:
         plot_images = True
     else:
         plot_images = False
@@ -64,7 +67,11 @@ def compute_sky_integrals(
     # Transform the pulsar coordinates to Alt/Az at each epoch
     eval_times = start_time + eval_offsets
     altaz_frame = AltAz(location=MWA_LOCATION, obstime=eval_times)
-    pulsar_coords_altaz = pulsar_coords.transform_to(altaz_frame)
+    target_coords_altaz = target_coords.transform_to(altaz_frame)
+    if other_target_coords is not None:
+        other_target_coords_altaz = other_target_coords.transform_to(altaz_frame)
+    else:
+        other_target_coords_altaz = [None] * len(eval_times)
 
     # Compute the tile positions from the metadata
     tile_positions = extractWorkingTilePositions(context, extra_tile_flags=extra_tile_flags)
@@ -72,10 +79,11 @@ def compute_sky_integrals(
 
     # Dictionary to store the inputs and outputs of the integral calculation
     results = dict(
+        Ntiles=int(tile_positions.shape[0]),
         Times=eval_offsets.to(u.s),
         Freqs=eval_freqs.to(u.MHz),
-        Pulsar_Az=pulsar_coords_altaz.az.to(u.deg),
-        Pulsar_Alt=pulsar_coords_altaz.alt.to(u.deg),
+        Pulsar_Az=target_coords_altaz.az.to(u.deg),
+        Pulsar_Alt=target_coords_altaz.alt.to(u.deg),
         Angular_resolution=fine_grid_res.to(u.arcmin),
         T_amb=T_amb.to(u.K),
         T_rec=u.Quantity(np.empty((nfreq), dtype=np.float64), u.K),
@@ -134,8 +142,8 @@ def compute_sky_integrals(
         look_psi = calcGeometricDelays(
             tile_positions,
             eval_freqs[ii].to(u.Hz).value,
-            pulsar_coords_altaz.alt.rad,
-            pulsar_coords_altaz.az.rad,
+            target_coords_altaz.alt.rad,
+            target_coords_altaz.az.rad,
         ).T
 
         # Compute the primary beam power
@@ -151,9 +159,9 @@ def compute_sky_integrals(
                 grid_pbp,
                 coarse_grid_res.radian,
                 plevel=min_pbp,
-                plot=plot_pb,
-                pulsar_coords=pulsar_coords_altaz,
-                savename=f"{file_prefix}_primary_beam_masked_{eval_freqs[ii].to(u.MHz).value:.0f}MHz.png",
+                plot=plot_pb_cutout,
+                target_coords=target_coords_altaz,
+                savename=f"{file_prefix}_pb_cutout_{eval_freqs[ii].to(u.MHz).value:.0f}MHz.{plot_ext}",
             )
         else:
             pb_mask = np.full(shape=grid_pbp.shape, fill_value=True, dtype=bool)
@@ -336,51 +344,87 @@ def compute_sky_integrals(
 
         jpbar.close()
 
+        if plot_pb:
+            for tt in range(ntime):
+                plot_sky_images(
+                    grid_az=az_grid_coarse,
+                    grid_za=za_grid_coarse,
+                    grid_list=[log_nan_zeros(grid_pbp)],
+                    label_list=["$\log_{10}$ Z.N. Primary Beam Power"],
+                    vrange_list=[(-5, 0)],
+                    extend_list=["min"],
+                    target_coords=target_coords_altaz[tt],
+                    other_target_coords=other_target_coords_altaz[tt],
+                    savename=f"{file_prefix}_pb_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt:02d}.{plot_ext}",
+                )
         if plot_images:
             for tt in range(ntime):
                 if plot_tab:
                     plot_sky_images(
-                        az_grid_coarse,
-                        za_grid_coarse,
-                        [
+                        grid_az=az_grid_coarse,
+                        grid_za=za_grid_coarse,
+                        grid_list=[log_nan_zeros(tabp_coarse[tt])],
+                        label_list=["$\log_{10}$ Z.N. Tied-Array Beam Power"],
+                        vrange_list=[(-5, 0)],
+                        extend_list=["min"],
+                        target_coords=target_coords_altaz[tt],
+                        other_target_coords=other_target_coords_altaz[tt],
+                        savename=f"{file_prefix}_tab_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt:02d}.{plot_ext}",
+                    )
+                if plot_tab_triptych:
+                    plot_sky_images(
+                        grid_az=az_grid_coarse,
+                        grid_za=za_grid_coarse,
+                        grid_list=[
                             log_nan_zeros(afp_coarse[tt]),
                             log_nan_zeros(pbp_coarse),
                             log_nan_zeros(tabp_coarse[tt]),
                         ],
-                        [
-                            "$\log_{10}[|f(\\theta,\phi)|^2]$",
-                            "$\log_{10}[|D(\\theta,\phi)|^2]$",
-                            "$\log_{10}[B_\mathrm{array}(\\theta,\phi)]$",
+                        label_list=[
+                            "$\log_{10}$ Array Factor Power",
+                            "$\log_{10}$ Z.N. Primary Beam Power",
+                            "$\log_{10}$ Z.N. Tied-Array Beam Power",
                         ],
-                        pulsar_coords_altaz[tt],
-                        savename=f"{file_prefix}_log_beam_images_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
+                        vrange_list=[(-5, 0)] * 3,
+                        extend_list=["min"] * 3,
+                        target_coords=target_coords_altaz[tt],
+                        other_target_coords=other_target_coords_altaz[tt],
+                        savename=f"{file_prefix}_tab_triptych_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt:02d}.{plot_ext}",
                     )
                 if plot_integrals:
                     plot_sky_images(
-                        az_grid_coarse,
-                        za_grid_coarse,
-                        [
+                        grid_az=az_grid_coarse,
+                        grid_za=za_grid_coarse,
+                        grid_list=[
                             log_nan_zeros(int_afp_coarse[tt]),
                             log_nan_zeros(int_B_T_coarse[tt]),
                             log_nan_zeros(int_B_coarse[tt]),
                         ],
-                        [
-                            "$\log_{10}[|f(\\theta,\phi)|^2\,\mathrm{d}\Omega]$",
-                            "$\log_{10}[B_\mathrm{array}(\\theta,\phi) "
-                            + "T_\mathrm{sky}(\\theta,\phi)\,\mathrm{d}\Omega]$",
-                            "$\log_{10}[B_\mathrm{array}(\\theta,\phi)\,\mathrm{d}\Omega]$",
+                        label_list=[
+                            "$\log_{10}\,|f(\\theta,\phi)|^2\,\mathrm{d}\Omega$",
+                            "$\log_{10}\,B_\mathrm{array}(\\theta,\phi) "
+                            + "T_\mathrm{sky}(\\theta,\phi)\,\mathrm{d}\Omega$",
+                            "$\log_{10}\,B_\mathrm{array}(\\theta,\phi)\,\mathrm{d}\Omega$",
                         ],
-                        pulsar_coords_altaz[tt],
-                        savename=f"{file_prefix}_log_integral_images_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
+                        vrange_list=[(-10, -3)] * 3,
+                        extend_list=["both"] * 3,
+                        target_coords=target_coords_altaz[tt],
+                        other_target_coords=other_target_coords_altaz[tt],
+                        savename=f"{file_prefix}_integrals_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt:02d}.{plot_ext}",
                     )
                 if plot_tsky:
                     plot_sky_images(
-                        az_grid_coarse,
-                        za_grid_coarse,
-                        [log_nan_zeros(tsky_coarse[tt])],
-                        ["$\mathrm{log}_{10}\,T_\mathrm{sky}$ [K]"],
-                        pulsar_coords_altaz[tt],
-                        savename=f"{file_prefix}_log_tsky_image_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt}.png",
+                        grid_az=az_grid_coarse,
+                        grid_za=za_grid_coarse,
+                        grid_list=[log_nan_zeros(tsky_coarse[tt])],
+                        label_list=["$\mathrm{log}_{10}\,T_\mathrm{sky}$ [K]"],
+                        vrange_list=[(2.25, 3.75)],
+                        contour_grid_list=[log_nan_zeros(grid_pbp)],
+                        contour_levels=[-3, np.log10(0.5)],
+                        extend_list=["both"],
+                        target_coords=target_coords_altaz[tt],
+                        other_target_coords=other_target_coords_altaz[tt],
+                        savename=f"{file_prefix}_tsky_{eval_freqs[ii].to(u.MHz).value:.0f}MHz_t{tt:02d}.{plot_ext}",
                     )
 
         # Antenna temperature (Eq 13 of M+17)

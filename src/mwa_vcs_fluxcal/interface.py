@@ -36,10 +36,14 @@ def simulate_sefd(
     eta: float = 0.98,
     plot_trec: bool = False,
     plot_pb: bool = False,
+    plot_pb_cutout: bool = False,
     plot_tab: bool = False,
+    plot_tab_triptych: bool = False,
     plot_tsky: bool = False,
     plot_integrals: bool = False,
     plot_3d: bool = False,
+    plot_ext: str = "webp",
+    other_target_coords: SkyCoord | None = None,
     extra_tile_flags: list[str] | None = None,
     cal_metafits: str | None = None,
     file_prefix: str = "sim",
@@ -140,7 +144,7 @@ def simulate_sefd(
             T_rec_spline,
             fctr.to(u.MHz).value,
             bw.to(u.MHz).value,
-            savename=f"{file_prefix}_trcvr_vs_freq.png",
+            savename=f"{file_prefix}_trcvr_vs_freq.{plot_ext}",
         )
 
     # Compute the sky integrals required to get T_sys and gain
@@ -157,12 +161,16 @@ def simulate_sefd(
             min_pbp,
             max_pix_per_job=max_pix_per_job,
             plot_pb=plot_pb,
+            plot_pb_cutout=plot_pb_cutout,
             plot_tab=plot_tab,
+            plot_tab_triptych=plot_tab_triptych,
             plot_tsky=plot_tsky,
             plot_integrals=plot_integrals,
+            plot_ext=plot_ext,
             fc=fc,
             eta=eta,
             T_amb=T_amb,
+            other_target_coords=other_target_coords,
             extra_tile_flags=extra_tile_flags,
             file_prefix=file_prefix,
             pbar_manager=manager,
@@ -175,21 +183,21 @@ def simulate_sefd(
             eval_freqs.to(u.MHz).value,
             results["T_sys"].value,
             zlabel="$T_\mathrm{sys}$ [K]",
-            savename=f"{file_prefix}_3d_tsys.png",
+            savename=f"{file_prefix}_3d_tsys.{plot_ext}",
         )
         plot_3d_result(
             eval_offsets.to(u.s).value,
             eval_freqs.to(u.MHz).value,
             results["G"].value,
             zlabel="Gain [K/Jy]",
-            savename=f"{file_prefix}_3d_gain.png",
+            savename=f"{file_prefix}_3d_gain.{plot_ext}",
         )
         plot_3d_result(
             eval_offsets.to(u.s).value,
             eval_freqs.to(u.MHz).value,
             results["SEFD"].value,
             zlabel="SEFD [Jy]",
-            savename=f"{file_prefix}_3d_sefd.png",
+            savename=f"{file_prefix}_3d_sefd.{plot_ext}",
         )
 
     return results

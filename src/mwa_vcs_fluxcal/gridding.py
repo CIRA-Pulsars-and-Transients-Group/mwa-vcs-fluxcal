@@ -11,6 +11,8 @@ from astropy.coordinates import SkyCoord
 from matplotlib.path import Path
 from skimage import measure
 
+from .plotting import plot_sky_images
+
 __all__ = ["tesellate_primary_beam", "upsample_blocks"]
 
 logger = logging.getLogger(__name__)
@@ -23,7 +25,7 @@ def tesellate_primary_beam(
     res: float,
     plevel: float = 0.001,
     plot: bool = True,
-    pulsar_coords: SkyCoord = None,
+    target_coords: SkyCoord = None,
     savename: str = "primary_beam_masked.png",
 ) -> tuple[np.ndarray, np.ndarray]:
     """Tesellate the primary beam by finding pixels inside iso-power contours.
@@ -42,8 +44,8 @@ def tesellate_primary_beam(
         The zenith-normalised power level to use to find the contours.
     plot : `bool`
         Make a plot showing the masked primary beam.
-    pulsar_coords : `SkyCoord`, optional
-        The coordinates of the target pulsar to plot in the beam. Default: None.
+    target_coords : `SkyCoord`, optional
+        The coordinates of the target to plot. Default: None.
     savename : `str`, optional
         The filename to save the plot as. Default: "primary_beam_masked.png".
 
@@ -86,40 +88,16 @@ def tesellate_primary_beam(
 
     # Make a plot showing the masked primary beam power
     if plot:
-        cmap = plt.get_cmap("cmr.arctic")
-        fig, ax = plt.subplots(
-            figsize=(6, 5), tight_layout=True, subplot_kw={"projection": "polar"}
+        plot_sky_images(
+            grid_az=az,
+            grid_za=za,
+            grid_list=[np.log10(np.where(mask, pbp, np.nan))],
+            label_list=["$\log_{10}$ Z.N. Primary Beam Power"],
+            vrange_list=[(-5, 0)],
+            extend_list=["min"],
+            target_coords=target_coords,
+            savename=savename,
         )
-        pbp_inbeam = np.where(mask, pbp, np.nan)
-        im = ax.pcolormesh(az, za, np.log10(pbp_inbeam), rasterized=True, shading="auto", cmap=cmap)
-        if pulsar_coords is not None:
-            ax.plot(
-                pulsar_coords.az.radian,
-                np.pi / 2 - pulsar_coords.alt.radian,
-                linestyle="none",
-                marker="o",
-                color="tab:red",
-                ms=3,
-                mfc="none",
-            )
-        cbar = plt.colorbar(im, pad=0.13, ticks=[-4, -3, -2, -1, 0])
-        cbar.ax.set_ylim([np.log10(plevel), 0])
-        cbar.ax.set_yticklabels(["0.01", "0.1", "1", "10", "100"])
-        cbar.ax.set_ylabel("Zenith-normalised beam power [%]", labelpad=10)
-        ax.set_theta_zero_location("N")
-        ax.set_theta_direction(-1)
-        ax.set_rlabel_position(157.5)
-        ax.grid(ls=":", color="0.5", lw=0.5)
-        ax.set_ylim(np.radians([0, 90]))
-        ax.set_yticks(np.radians([20, 40, 60, 80]))
-        ax.set_yticklabels(
-            ["${}^\\circ$".format(int(x)) for x in np.round(np.degrees(ax.get_yticks()), 0)]
-        )
-        ax.set_xlabel("Azimuth Angle [deg]", labelpad=5)
-        ax.set_ylabel("Zenith Angle [deg]", labelpad=30)
-        logger.info(f"Saving plot file: {savename}")
-        fig.savefig(savename)
-        plt.close()
 
     return mask
 

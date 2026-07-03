@@ -12,20 +12,40 @@ from scipy.interpolate import CubicSpline, RegularGridInterpolator
 
 __all__ = [
     "plot_trcvr_vs_freq",
-    "plot_primary_beam",
-    "plot_tied_array_beam",
     "plot_sky_images",
     "plot_3d_result",
 ]
 
 logger = logging.getLogger(__name__)
 
+plt.rcParams["figure.dpi"] = 300
+plt.rcParams["font.size"] = 12
+plt.rcParams["mathtext.fontset"] = "dejavuserif"
+plt.rcParams["font.family"] = "serif"
+
+USE_LATEX = False
+USE_DARKMODE = False
+
+if USE_LATEX:
+    plt.rcParams["text.usetex"] = True
+    plt.rcParams["font.serif"] = "cm"
+
+if USE_DARKMODE:
+    plt.style.use("dark_background")
+    LINE_COLOUR = "w"
+    BG_COLOUR = "k"
+    CMAP = "cmr.arctic"
+else:
+    LINE_COLOUR = "k"
+    BG_COLOUR = "w"
+    CMAP = "cmr.arctic_r"
+
 
 def plot_trcvr_vs_freq(
     trcvr_spline: CubicSpline,
     fctr: float,
     df: float,
-    savename: str = "trcvr_vs_freq.png",
+    savename: str = "trcvr_vs_freq.webp",
 ) -> None:
     """Plot the receiver temperature as a function of frequency.
 
@@ -38,13 +58,13 @@ def plot_trcvr_vs_freq(
     df : `float`
         The bandwidth in MHz.
     savename : `str`, optional
-        The filename to save the plot as. Default: "trcvr_vs_freq.png".
+        The filename to save the plot as. Default: "trcvr_vs_freq.webp".
     """
     fig, ax = plt.subplots(figsize=(6, 5), tight_layout=True)
 
     freqs = np.linspace(fctr - df / 2, fctr + df / 2, 1000)
 
-    ax.plot(freqs, trcvr_spline(freqs), linestyle="-", color="k", label="Cubic Spline")
+    ax.plot(freqs, trcvr_spline(freqs), linestyle="-", color=LINE_COLOUR, label="Cubic Spline")
     ylims = ax.get_ylim()
 
     ax.set_xlim([fctr - df / 2, fctr + df / 2])
@@ -62,130 +82,19 @@ def plot_trcvr_vs_freq(
     plt.close()
 
 
-def plot_primary_beam(
-    grid_az: np.ndarray[float],
-    grid_za: np.ndarray[float],
-    grid_pbp: np.ndarray[float],
-    savename: str = "primary_beam.png",
-) -> None:
-    """Plot the primary beam power.
-
-    Parameters
-    ----------
-    grid_az : `np.ndarray[float]`
-        A 2D grid of azimuth angles in radians.
-    grid_za : `np.ndarray[float]`
-        A 2D grid of zenith angles in radians.
-    grid_pbp : `np.ndarray[float]`
-        A 2D grid of powers.
-    savename : `str`, optional
-        The filename to save the plot as. Default: "primary_beam.png".
-    """
-    cmap = plt.get_cmap("cmr.arctic_r")
-    cmap.set_under(color="w")
-    contour_levels = [0.01, 0.1, 0.5, 0.9]
-
-    fig = plt.figure(figsize=(6, 5), tight_layout=True)
-    ax = fig.add_subplot(projection="polar")
-    im = ax.pcolormesh(
-        grid_az,
-        grid_za,
-        grid_pbp,
-        vmax=1.0,
-        vmin=0.01,
-        rasterized=True,
-        shading="auto",
-        cmap=cmap,
-    )
-    ax.contour(grid_az, grid_za, grid_pbp, contour_levels, colors="k", linewidths=1, zorder=1e2)
-    ax.set_theta_zero_location("N")
-    ax.set_theta_direction(-1)
-    ax.set_rlabel_position(157.5)
-    ax.grid(ls=":", color="0.5")
-    ax.set_ylim(np.radians([0, 90]))
-    ax.set_yticks(np.radians([20, 40, 60, 80]))
-    ax.set_yticklabels(
-        ["${}^\\circ$".format(int(x)) for x in np.round(np.degrees(ax.get_yticks()), 0)]
-    )
-    ax.set_xlabel("Azimuth angle [deg]", labelpad=5)
-    ax.set_ylabel("Zenith angle [deg]", labelpad=30)
-    cbar = plt.colorbar(
-        im,
-        pad=0.13,
-        extend="min",
-        ticks=[0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
-    )
-    cbar.ax.set_ylabel("Zenith-normalised beam power", labelpad=10)
-    cbar.ax.tick_params(labelsize=10)
-    for contour_level in contour_levels:
-        cbar.ax.axhline(contour_level, color="k", lw=1)
-
-    logger.info(f"Saving plot file: {savename}")
-    fig.savefig(savename)
-
-    plt.close()
-
-
-def plot_tied_array_beam(
-    grid_az: np.ndarray[float],
-    grid_za: np.ndarray[float],
-    grid_tabp: np.ndarray[float],
-    savename: str = "tied_array_beam.png",
-) -> None:
-    """Plot the tied array beam power.
-
-    Parameters
-    ----------
-    grid_az : `np.ndarray[float]`
-        A 2D grid of azimuth angles in radians.
-    grid_za : `np.ndarray[float]`
-        A 2D grid of zenith angles in radians.
-    grid_tabp : `np.ndarray[float]`
-        A 2D grid of powers.
-    savename : `str`, optional
-        The filename to save the plot as. Default: "tied_array_beam.png".
-    """
-    cmap = plt.get_cmap("cmr.arctic_r")
-    cmap.set_under(color="w")
-
-    fig = plt.figure(figsize=(6, 5), tight_layout=True)
-    ax = fig.add_subplot(projection="polar")
-    im = ax.pcolormesh(
-        grid_az,
-        grid_za,
-        grid_tabp,
-        rasterized=True,
-        shading="auto",
-        cmap=cmap,
-    )
-    ax.set_theta_zero_location("N")
-    ax.set_theta_direction(-1)
-    ax.set_rlabel_position(157.5)
-    ax.grid(ls=":", color="0.5")
-    ax.set_ylim(np.radians([0, 90]))
-    ax.set_yticks(np.radians([20, 40, 60, 80]))
-    ax.set_yticklabels(
-        ["${}^\\circ$".format(int(x)) for x in np.round(np.degrees(ax.get_yticks()), 0)]
-    )
-    ax.set_xlabel("Azimuth angle [deg]", labelpad=5)
-    ax.set_ylabel("Zenith angle [deg]", labelpad=30)
-    cbar = plt.colorbar(im, pad=0.13, extend="min")
-    cbar.ax.set_ylabel("Zenith-normalised beam power", labelpad=10)
-    cbar.ax.tick_params(labelsize=10)
-
-    logger.info(f"Saving plot file: {savename}")
-    fig.savefig(savename)
-
-    plt.close()
-
-
 def plot_sky_images(
     grid_az: np.ndarray[float],
     grid_za: np.ndarray[float],
-    grid_list: list,
-    label_list: list,
-    pulsar_coords: SkyCoord = None,
-    savename: str = "sky_images.png",
+    grid_list: list[np.ndarray[float]],
+    label_list: list[str],
+    title_list: list[str] | None = None,
+    vrange_list: list[tuple[float | None, float | None] | None] | None = None,
+    contour_grid_list: list[np.ndarray[float]] | None = None,
+    contour_levels: int | list[float] | None = 1,
+    extend_list: list[str] | None = None,
+    target_coords: SkyCoord = None,
+    other_target_coords: SkyCoord = None,
+    savename: str = "sky_images.webp",
 ) -> None:
     """Plot multiple arrays on polar Az/ZA skymaps.
 
@@ -195,49 +104,119 @@ def plot_sky_images(
         A 2D grid of azimuth angles in radians.
     grid_za : `np.ndarray[float]`
         A 2D grid of zenith angles in radians.
-    grid_list : `list`
+    grid_list : `list[np.ndarray[float]]`
         A list of 2D data grids to plot.
-    label_list : `list`
+    label_list : `list[str]`
         A list of data labels to use for the colour bars.
-    pulsar_coords : `SkyCoord`, optional
-        The coordinates of the target pulsar to plot in the beam. Default: None.
+    title_list : `list[str]`, optional
+        A list of plot titles.
+    vrange_list : `list[tuple[float | None, float | None] | None]`, optional
+        A list of `(vmin, vmax)` pairs, specifying the dynamic range of the
+        image. Either limit can be left as None, or a whole tuple can be left
+        as None. If None, then the limits will be automatically chosen.
+    contour_grid_list : `list[array_like[float]]`, optional
+        A list of 2D data grids to use to calculate contours. For example,
+        to plot the primary beam contours. Default: None.
+    contour_levels : `int | list[float]`, optional
+        The contour levels to draw if contour_grid_list is provided. This
+        will be passed directly to `plt.contour`. Default: 1.
+    extend_list : `str`, optional
+        A list of strings specifying whether to make pointed end(s) for
+        out-of-range values in the colorbar for each image. The options
+        are "min", "max", or "neither". Default: "neither" for all.
+    target_coords : `SkyCoord`, optional
+        The coordinates of the primary target to plot. Default: None.
+    other_target_coords : `SkyCoord`, optional
+        The coordinates of a secondary target to plot. Default: None.
     savename : `str`, optional
-        The filename to save the plot as. Default: "sky_images.png".
+        The filename to save the plot as. Default: "sky_images.webp".
     """
-    cmap = plt.get_cmap("cmr.arctic_r")
-    cmap.set_under(color="w")
+    cmap = plt.get_cmap(CMAP)
+    cmap.set_under(color=BG_COLOUR)
 
     num_images = len(grid_list)
+
+    if title_list is None:
+        title_list = [None] * num_images
+
+    if vrange_list is None:
+        vrange_list = [None] * num_images
+
+    if contour_grid_list is None:
+        contour_grid_list = [None] * num_images
+
+    if extend_list is None:
+        extend_list = ["neither"] * num_images
 
     fig, axes = plt.subplots(
         ncols=num_images,
         figsize=(5 * num_images, 6),
-        tight_layout=True,
+        layout="tight",
         subplot_kw={"projection": "polar"},
     )
     if type(axes) is not np.ndarray:
         axes = np.array([axes])
 
-    im_list = []
-    for ii, grid_data in enumerate(grid_list):
-        im = axes[ii].pcolormesh(
+    for ax, grid_data, lab, title, vrange, cgrid_data, extend in zip(
+        axes,
+        grid_list,
+        label_list,
+        title_list,
+        vrange_list,
+        contour_grid_list,
+        extend_list,
+        strict=True,
+    ):
+        if vrange is not None:
+            vmin, vmax = vrange
+        else:
+            vmin = None
+            vmax = None
+
+        if title is not None:
+            ax.set_title(title, pad=10)
+
+        im = ax.pcolormesh(
             grid_az,
             grid_za,
             grid_data,
             rasterized=True,
             shading="auto",
             cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
         )
-        im_list.append(im)
 
-    for ax, im, lab in zip(axes, im_list, label_list, strict=True):
-        if pulsar_coords is not None:
+        if cgrid_data is not None:
+            ax.contour(
+                grid_az,
+                grid_za,
+                cgrid_data,
+                contour_levels,
+                colors=LINE_COLOUR,
+                linewidths=0.7,
+                negative_linestyles="solid",
+                zorder=1e2,
+            )
+
+        if target_coords is not None:
             ax.plot(
-                pulsar_coords.az.radian,
-                np.pi / 2 - pulsar_coords.alt.radian,
+                target_coords.az.radian,
+                np.pi / 2 - target_coords.alt.radian,
                 linestyle="none",
                 marker="o",
-                color="tab:red",
+                color="r",
+                ms=3,
+                mfc="none",
+            )
+
+        if other_target_coords is not None:
+            ax.plot(
+                other_target_coords.az.radian,
+                np.pi / 2 - other_target_coords.alt.radian,
+                linestyle="none",
+                marker="D",
+                color="lime",
                 ms=3,
                 mfc="none",
             )
@@ -245,15 +224,15 @@ def plot_sky_images(
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
         ax.set_rlabel_position(157.5)
-        ax.grid(ls=":", color="0.5")
+        ax.grid(ls=":", color=LINE_COLOUR)
         ax.set_ylim(np.radians([0, 90]))
         ax.set_yticks(np.radians([20, 40, 60, 80]))
         ax.set_yticklabels(
             ["${}^\\circ$".format(int(x)) for x in np.round(np.degrees(ax.get_yticks()), 0)]
         )
-        ax.set_xlabel("Azimuth angle [deg]", labelpad=5)
-        ax.set_ylabel("Zenith angle [deg]", labelpad=30)
-        cbar = plt.colorbar(im, ax=ax, orientation="horizontal", pad=0.13)
+        # ax.set_xlabel("Azimuth angle [deg]", labelpad=5)
+        # ax.set_ylabel("Zenith angle [deg]", labelpad=30)
+        cbar = plt.colorbar(im, ax=ax, extend=extend, orientation="horizontal", pad=0.1)
         cbar.ax.set_xlabel(lab, labelpad=10)
         cbar.ax.tick_params(labelsize=10)
 
@@ -269,7 +248,7 @@ def plot_3d_result(
     d: np.ndarray[float],
     zlabel: str,
     num_points: int = 20,
-    savename: str = "results.png",
+    savename: str = "results.webp",
 ) -> RegularGridInterpolator:
     """Make a 3D plot of the (t,f) parameter space for data d.
 
@@ -286,7 +265,7 @@ def plot_3d_result(
     num_points : `int`, optional
         The number of points to interpolate the data to in each dimension. Default: 20.
     savename : `str`, optional
-        The filename to save the plot as. Default: "results.png".
+        The filename to save the plot as. Default: "results.webp".
 
     Returns
     -------
@@ -301,7 +280,7 @@ def plot_3d_result(
     ddg = interp((ttg, ffg))
 
     fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    ax.scatter(tg.ravel(), fg.ravel(), d.ravel(), s=20, c="k")
+    ax.scatter(tg.ravel(), fg.ravel(), d.ravel(), s=20, c=LINE_COLOUR)
     ax.plot_wireframe(ttg, ffg, ddg, alpha=0.4)
     ax.set(
         xlabel="Time [s]",

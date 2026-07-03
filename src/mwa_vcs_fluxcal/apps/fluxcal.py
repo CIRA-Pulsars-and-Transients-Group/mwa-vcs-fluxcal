@@ -3,6 +3,7 @@
 ########################################################
 
 import click
+import matplotlib.pyplot as plt
 from astropy.coordinates import SkyCoord
 
 from mwa_vcs_fluxcal import __version__
@@ -36,6 +37,12 @@ from mwa_vcs_fluxcal.utils import qty_dict_to_toml
     type=str,
     help="The target's RA/Dec in hour/deg units in any format accepted by SkyCoord.",
     required=True,
+)
+@click.option(
+    "--other_target",
+    type=str,
+    help="A secondary target's RA/Dec in hour/deg units in any format accepted by SkyCoord. "
+    + "This target will be added to the plots but not used for anything else.",
 )
 @click.option(
     "-s",
@@ -124,10 +131,27 @@ from mwa_vcs_fluxcal.utils import qty_dict_to_toml
 @click.option("-f", "--file_prefix", type=str, help="The prefix of the output file names.")
 @click.option("--plot_trec", is_flag=True, help="Plot the receiver temperature.")
 @click.option("--plot_pb", is_flag=True, help="Plot the primary beam in Alt/Az.")
+@click.option(
+    "--plot_pb_cutout",
+    is_flag=True,
+    help="If --min_pbp is specified, then plot the primary beam cutout in Alt/Az.",
+)
 @click.option("--plot_tab", is_flag=True, help="Plot the tied-array beam in Alt/Az.")
+@click.option(
+    "--plot_tab_triptych",
+    is_flag=True,
+    help="Plot a 3-part figure of the array factor, primary beam, and tied-array beam in Alt/Az.",
+)
 @click.option("--plot_tsky", is_flag=True, help="Plot sky temperature in Alt/Az.")
 @click.option("--plot_integrals", is_flag=True, help="Plot the integral quantities in Alt/Az.")
 @click.option("--plot_3d", is_flag=True, help="Plot the results in 3D (time,freq,data).")
+@click.option(
+    "--plot_ext",
+    type=click.Choice(plt.gcf().canvas.get_supported_filetypes().keys(), case_sensitive=False),
+    default="webp",
+    show_default=True,
+    help="The file extension to use for plots.",
+)
 @click.option(
     "--extra_tile_flags", type=str, help="A comma-separated list of tile names or IDs to flag."
 )
@@ -140,6 +164,7 @@ def main(
     log_level: str,
     metafits: str,
     target: str,
+    other_target: str | None,
     start_offset: float | None,
     int_time: float | None,
     fine_res: float,
@@ -155,16 +180,23 @@ def main(
     file_prefix: str,
     plot_trec: bool,
     plot_pb: bool,
+    plot_pb_cutout: bool,
     plot_tab: bool,
+    plot_tab_triptych: bool,
     plot_tsky: bool,
     plot_integrals: bool,
     plot_3d: bool,
+    plot_ext: str,
     extra_tile_flags: list[str] | None,
     cal_metafits: str,
 ) -> None:
     setup_logger("mwa_vcs_fluxcal", log_level)
 
     target_coords = SkyCoord(target, frame="icrs", unit=("hourangle", "deg"))
+    if other_target:
+        other_target_coords = SkyCoord(other_target, frame="icrs", unit=("hourangle", "deg"))
+    else:
+        other_target_coords = None
 
     if file_prefix is None:
         file_prefix = target_coords.to_string(style="hmsdms", precision=2).replace(" ", "_")
@@ -201,10 +233,14 @@ def main(
         eta=eta,
         plot_trec=plot_trec,
         plot_pb=plot_pb,
+        plot_pb_cutout=plot_pb_cutout,
         plot_tab=plot_tab,
+        plot_tab_triptych=plot_tab_triptych,
         plot_tsky=plot_tsky,
         plot_integrals=plot_integrals,
         plot_3d=plot_3d,
+        plot_ext=plot_ext,
+        other_target_coords=other_target_coords,
         extra_tile_flags=extra_tile_flags,
         cal_metafits=cal_metafits,
         file_prefix=file_prefix,
